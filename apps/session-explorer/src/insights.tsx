@@ -1,0 +1,396 @@
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { getStats } from "./api";
+import { duration, number, tokens } from "./format";
+import type { DayStat, Stats } from "./types";
+
+const emptyFilters = {
+  q: "",
+  provider: "",
+  tool: "",
+  skill: "",
+  model: "",
+  from: "",
+  to: "",
+};
+
+function percent(part: number, whole: number): string {
+  if (!whole) return "—";
+  return `${Math.round((part / whole) * 100)}%`;
+}
+
+/** A bar chart of daily volume. Deliberately unlabelled per-bar: the point is
+ *  the shape of the workload over time, with exact figures on hover. Only the
+ *  ends are dated, which is enough to read the span without a dense axis. */
+function DailyChart({ days }: { days: DayStat[] }) {
+  if (!days.length) return <p className="empty-inline">没有可用的时间分布。</p>;
+  const peak = Math.max(...days.map((day) => day.tokens), 1);
+  return (
+    <>
+      <div
+        className="insight-bars"
+        role="img"
+        aria-label={`最近 ${days.length} 天的 token 用量分布`}
+      >
+        {days.map((day) => {
+          const height = Math.max(2, Math.round((day.tokens / peak) * 100));
+          return (
+            <div
+              key={day.date}
+              className={`insight-bar${day.failures > 0 ? " has-failures" : ""}`}
+              style={{ height: `${height}%` }}
+              title={`${day.date}\n${number(day.tokens)} tokens · ${day.runs} 个 session · ${day.failures} 次失败`}
+            />
+          );
+        })}
+      </div>
+      <div className="insight-axis">
+        <span>{days[0].date}</span>
+        <span>峰值 {number(peak)} tokens</span>
+        <span>{days[days.length - 1].date}</span>
+      </div>
+    </>
+  );
+}
+
+export function Insights() {
+  const [stats, setStats] = useState<Stats>();
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let live = true;
+    setError("");
+    void getStats(emptyFilters)
+      .then((next) => live && setStats(next))
+      .catch((caught) => {
+        if (live)
+          setError(caught instanceof Error ? caught.message : "统计加载失败");
+      });
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  const busiest = useMemo(() => {
+    if (!stats?.daily?.length) return undefined;
+    return stats.daily.reduce((top, day) => (day.tokens > top.tokens ? day : top));
+  }, [stats]);
+
+  if (error)
+    return (
+      <main id="main-content" className="workspace">
+        <p className="error" role="alert">
+          {error}
+        </p>
+      </main>
+    );
+
+  if (!stats)
+    return (
+      <main id="main-content" className="workspace">
+        <p className="muted">正在统计全部 session…</p>
+      </main>
+    );
+
+  if (stats.runCount === 0)
+    return (
+      <main id="main-content" className="workspace">
+        <div className="empty">
+          <strong>还没有已索引的 session</strong>
+          <span>
+            先到<Link to="/">会话库</Link>导入或扫描本机记录。
+          </span>
+        </div>
+      </main>
+    );
+
+  const totalTokens = stats.tokens.total ?? 0;
+  const cacheRead = stats.tokens.cacheRead ?? 0;
+  const inputUncached = stats.tokens.inputUncached ?? 0;
+  const output = stats.tokens.output ?? 0;
+  const cacheWrite = stats.tokens.cacheWrite ?? 0;
+
+  return (
+    <main id="main-content" className="workspace insights-page">
+      <div className="page-heading">
+        <div>
+          <p className="eyebrow">Cross-session analysis</p>
+          <h1>全局分析</h1>
+          <p>{`覆盖已索引的全部 ${number(stats.runCount)} 个 session。所有数字来自可观察字段，不做推测。`}</p>
+        </div>
+      </div>
+
+      <div className="metric-hero-grid">
+        <div className="metric-card-body">
+          <div className="metric-top-label">
+            <span>累计 Tokens</span>
+          </div>
+          <div className="metric-big-num">{tokens(totalTokens)}</div>
+          <div className="metric-footer-note">
+            {number(stats.tokenRunCount)} 个 session 有 token 观测
+          </div>
+        </div>
+        <div className="metric-card-body">
+          <div className="metric-top-label">
+            <span>墙钟总时长</span>
+          </div>
+          <div className="metric-big-num">{duration(stats.wallDurationMs)}</div>
+          <div className="metric-footer-note">
+            其中活跃 {duration(stats.activeDurationMs)}（
+            {percent(stats.activeDurationMs, stats.wallDurationMs)}）
+          </div>
+        </div>
+        <div className="metric-card-body">
+          <div className="metric-top-label">
+            <span>工具失败</span>
+          </div>
+          <div className="metric-big-num" style={{ color: stats.toolFailures ? "var(--danger)" : "inherit" }}>
+            {number(stats.toolFailures)}
+          </div>
+          <div className="metric-footer-note">
+            {number(stats.toolCalls)} 次调用中失败率{" "}
+            {percent(stats.toolFailures, stats.toolCalls)}
+          </div>
+        </div>
+        <div className="metric-card-body">
+          <div className="metric-top-label">
+            <span>受影响 session</span>
+          </div>
+          <div className="metric-big-num">
+            {number(stats.failedRunCount)}
+          </div>
+          <div className="metric-footer-note">
+            占全部的 {percent(stats.failedRunCount, stats.runCount)}
+          </div>
+        </div>
+      </div>
+
+      <section className="insight-block">
+        <header>
+          <h2>用量走势</h2>
+          <span className="muted">
+            最近 {stats.daily.length} 天
+            {busiest ? ` · 峰值 ${busiest.date}` : ""}
+          </span>
+        </header>
+        <DailyChart days={stats.daily} />
+        <p className="insight-note">条形高度为当日 token 用量，红色表示当日出现工具失败。</p>
+      </section>
+
+      <div className="insight-columns">
+        <section className="insight-block">
+          <header>
+            <h2>Token 构成</h2>
+          </header>
+          <dl className="insight-list">
+            {(
+              [
+                ["缓存读取", cacheRead],
+                ["未缓存输入", inputUncached],
+                ["输出", output],
+                ["缓存写入", cacheWrite],
+              ] as Array<[string, number]>
+            )
+              .sort((a, b) => b[1] - a[1])
+              .map(([label, value]) => (
+                <div key={label}>
+                  <dt>{label}</dt>
+                  <dd>
+                    <span className="insight-value">{number(value)}</span>
+                    <span className="insight-share">
+                      {percent(value, totalTokens)}
+                    </span>
+                  </dd>
+                </div>
+              ))}
+          </dl>
+          <p className="insight-note">
+            reasoning 是 output 的子集，不重复计入总量。
+          </p>
+        </section>
+
+        <section className="insight-block">
+          <header>
+            <h2>最常失败的工具</h2>
+          </header>
+          {stats.tools.length ? (
+            <table className="insight-table">
+              <thead>
+                <tr>
+                  <th>工具</th>
+                  <th>调用</th>
+                  <th>失败</th>
+                  <th>失败率</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats.tools.map((tool) => (
+                  <tr key={tool.name}>
+                    <td>
+                      <Link to={`/?tool=${encodeURIComponent(tool.name)}`}>
+                        {tool.name}
+                      </Link>
+                    </td>
+                    <td>{number(tool.calls)}</td>
+                    <td className={tool.failures ? "danger" : ""}>
+                      {number(tool.failures)}
+                    </td>
+                    <td>{percent(tool.failures, tool.calls)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="empty-inline">没有观察到工具调用。</p>
+          )}
+        </section>
+      </div>
+
+      <section className="insight-block">
+        <header>
+          <h2>项目分布</h2>
+          <span className="muted">按 token 用量排序</span>
+        </header>
+        <table className="insight-table">
+          <thead>
+            <tr>
+              <th>项目</th>
+              <th>Session</th>
+              <th>Tokens</th>
+              <th>墙钟</th>
+              <th>失败</th>
+            </tr>
+          </thead>
+          <tbody>
+            {stats.projects.map((project) => (
+              <tr key={project.name}>
+                <td>
+                  <Link to={`/?q=${encodeURIComponent(project.name)}`}>
+                    {project.name}
+                  </Link>
+                </td>
+                <td>{number(project.runs)}</td>
+                <td>{number(project.tokens)}</td>
+                <td>{duration(project.durationMs)}</td>
+                <td className={project.failures ? "danger" : ""}>
+                  {number(project.failures)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+
+      <div className="insight-columns">
+        <section className="insight-block">
+          <header>
+            <h2>智能体构成</h2>
+          </header>
+          <dl className="insight-list">
+            {stats.providers.map((provider) => (
+              <div key={provider.name}>
+                <dt>
+                  <Link to={`/?provider=${encodeURIComponent(provider.name)}`}>
+                    {provider.name}
+                  </Link>
+                </dt>
+                <dd>
+                  <span className="insight-value">{number(provider.count)}</span>
+                  <span className="insight-share">
+                    {percent(provider.count, stats.runCount)}
+                  </span>
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+
+        <section className="insight-block">
+          <header>
+            <h2>模型构成</h2>
+          </header>
+          <dl className="insight-list">
+            {stats.models.slice(0, 8).map((model) => (
+              <div key={model.name}>
+                <dt>
+                  <Link to={`/?model=${encodeURIComponent(model.name)}`}>
+                    {model.name}
+                  </Link>
+                </dt>
+                <dd>
+                  <span className="insight-value">{number(model.count)}</span>
+                  <span className="insight-share">
+                    {percent(model.count, stats.runCount)}
+                  </span>
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      </div>
+
+      <section className="insight-block">
+        <header>
+          <h2>风险面</h2>
+        </header>
+        <dl className="insight-list">
+          <div>
+            <dt>
+              <Link to="/?contextRisk=true">上下文峰值 &gt; 80%</Link>
+            </dt>
+            <dd>
+              <span className="insight-value">{number(stats.contextRiskRuns)}</span>
+              <span className="insight-share">
+                {percent(stats.contextRiskRuns, stats.runCount)}
+              </span>
+            </dd>
+          </div>
+          <div>
+            <dt>
+              <Link to="/?correction=true">出现纠偏候选</Link>
+            </dt>
+            <dd>
+              <span className="insight-value">{number(stats.correctionRuns)}</span>
+              <span className="insight-share">
+                {percent(stats.correctionRuns, stats.runCount)}
+              </span>
+            </dd>
+          </div>
+          <div>
+            <dt>
+              <Link to="/?error=true">出现工具失败</Link>
+            </dt>
+            <dd>
+              <span className="insight-value">{number(stats.failedRunCount)}</span>
+              <span className="insight-share">
+                {percent(stats.failedRunCount, stats.runCount)}
+              </span>
+            </dd>
+          </div>
+          <div>
+            <dt>使用了子 agent</dt>
+            <dd>
+              <span className="insight-value">{number(stats.subagentRuns)}</span>
+              <span className="insight-share">
+                {percent(stats.subagentRuns, stats.runCount)}
+              </span>
+            </dd>
+          </div>
+          <div>
+            <dt>空档时间</dt>
+            <dd>
+              <span className="insight-value">{duration(stats.idleDurationMs)}</span>
+              <span className="insight-share">
+                {percent(stats.idleDurationMs, stats.wallDurationMs)}
+              </span>
+            </dd>
+          </div>
+        </dl>
+        <p className="insight-note">
+          带链接的行会跳回会话库并应用对应筛选；子 agent
+          与空档时间没有对应筛选，只作为分母参考。
+        </p>
+      </section>
+    </main>
+  );
+}

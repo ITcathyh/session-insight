@@ -1,0 +1,1440 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Session Insights · Apple & Claude Inspired Precision Observability</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
+  <style>
+    /* ========================================================================= */
+    /* DESIGN SYSTEM: CLAUDE WARM INTELLECT + APPLE MATERIALITY + GOOGLE PRECISION */
+    /* ========================================================================= */
+    :root {
+      --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', 'SF Mono', Consolas, Menlo, monospace;
+      --font-editorial: 'Newsreader', Iowan Old Style, Georgia, serif;
+
+      /* Light Theme: Claude Warm Paper & Apple Clean Ceramic */
+      --bg-canvas: #FBF9F5;
+      --bg-surface: #FFFFFF;
+      --bg-surface-elevated: #F3EFE6;
+      --bg-surface-subtle: #F7F5EE;
+      --bg-glass: rgba(255, 255, 255, 0.75);
+
+      --border-hairline: rgba(20, 20, 19, 0.05);
+      --border-subtle: rgba(20, 20, 19, 0.09);
+      --border-strong: rgba(20, 20, 19, 0.16);
+
+      --text-main: #141413;
+      --text-secondary: #5A5956;
+      --text-muted: #8C8A84;
+      --text-tertiary: #B0ADA6;
+
+      /* Warm Anthropic Ochre & Apple Natural Tones */
+      --accent-warm: #CC6B27;
+      --accent-warm-subtle: rgba(204, 107, 39, 0.1);
+      --accent-clay: #9C5424;
+      --color-user: #228B22;
+      --color-model: #7C3AED;
+      --color-tool: #0284C7;
+      --color-error: #D9383A;
+      --color-warning: #D97706;
+
+      --shadow-apple-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+      --shadow-apple-md: 0 4px 16px -2px rgba(20, 20, 19, 0.06), 0 2px 4px rgba(20, 20, 19, 0.02);
+      --shadow-apple-lg: 0 20px 40px -8px rgba(20, 20, 19, 0.08), 0 1px 3px rgba(20, 20, 19, 0.04);
+      --inner-sheen: inset 0 1px 0.5px rgba(255, 255, 255, 0.8);
+    }
+
+    html.dark {
+      /* Dark Theme: Claude Warm Charcoal & Apple Pro Dark Glass */
+      --bg-canvas: #121211;
+      --bg-surface: #1B1B19;
+      --bg-surface-elevated: #242422;
+      --bg-surface-subtle: #181816;
+      --bg-glass: rgba(27, 27, 25, 0.72);
+
+      --border-hairline: rgba(255, 255, 255, 0.05);
+      --border-subtle: rgba(255, 255, 255, 0.09);
+      --border-strong: rgba(255, 255, 255, 0.16);
+
+      --text-main: #FAF8F5;
+      --text-secondary: #B8B5AD;
+      --text-muted: #807D75;
+      --text-tertiary: #52504B;
+
+      /* Claude Warm Amber / Ochre & Pro Accents */
+      --accent-warm: #E27D38;
+      --accent-warm-subtle: rgba(226, 125, 56, 0.15);
+      --accent-clay: #F09A58;
+      --color-user: #34D399;
+      --color-model: #A78BFA;
+      --color-tool: #38BDF8;
+      --color-error: #F87171;
+      --color-warning: #FBBF24;
+
+      --shadow-apple-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+      --shadow-apple-md: 0 8px 24px -4px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.3);
+      --shadow-apple-lg: 0 24px 48px -12px rgba(0, 0, 0, 0.7), 0 1px 2px rgba(0, 0, 0, 0.4);
+      --inner-sheen: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg-canvas);
+      color: var(--text-main);
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+      transition: background 0.3s ease, color 0.3s ease;
+    }
+
+    /* Ambient Warm Vignette */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at 50% 0%, var(--accent-warm-subtle) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ========================================================================= */
+    /* APPLE PRO COMMAND HEADER */
+    /* ========================================================================= */
+    .header-nav {
+      height: 60px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: var(--bg-glass);
+      backdrop-filter: blur(28px) saturate(180%);
+      -webkit-backdrop-filter: blur(28px) saturate(180%);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+    }
+
+    .brand-cluster {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-mark {
+      width: 30px;
+      height: 30px;
+      background: linear-gradient(145deg, var(--accent-warm), var(--accent-clay));
+      border-radius: 9px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 700;
+      font-size: 14px;
+      box-shadow: 0 2px 10px rgba(204, 107, 39, 0.3), var(--inner-sheen);
+    }
+    .brand-title-wrap {
+      display: flex;
+      flex-direction: column;
+    }
+    .brand-main-text {
+      font-weight: 700;
+      font-size: 14px;
+      letter-spacing: -0.02em;
+      color: var(--text-main);
+    }
+    .brand-sub-text {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+
+    /* Apple-style Liquid Segmented Control */
+    .segmented-tabs {
+      display: flex;
+      background: var(--bg-surface-elevated);
+      padding: 3px;
+      border-radius: 11px;
+      border: 1px solid var(--border-hairline);
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.08);
+      position: relative;
+    }
+    .tab-item-btn {
+      padding: 6px 18px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      border: none;
+      background: transparent;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .tab-item-btn:hover { color: var(--text-main); }
+    .tab-item-btn.active {
+      color: var(--text-main);
+      background: var(--bg-surface);
+      box-shadow: var(--shadow-apple-sm), var(--inner-sheen);
+      font-weight: 600;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .btn-apple {
+      padding: 7px 15px;
+      border-radius: 9px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+      font-family: inherit;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-surface);
+      color: var(--text-main);
+      box-shadow: var(--shadow-apple-sm), var(--inner-sheen);
+    }
+    .btn-apple:hover {
+      transform: translateY(-0.5px);
+      background: var(--bg-surface-elevated);
+      border-color: var(--border-strong);
+    }
+    .btn-apple:active {
+      transform: scale(0.98);
+    }
+    .btn-apple-primary {
+      background: var(--text-main);
+      color: var(--bg-canvas);
+      border-color: transparent;
+      box-shadow: var(--shadow-apple-md);
+    }
+    .btn-apple-primary:hover {
+      background: var(--text-secondary);
+      color: var(--bg-canvas);
+    }
+    .theme-round-btn {
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      justify-content: center;
+      border-radius: 50%;
+    }
+
+    /* Main Content Wrapper */
+    .content-stage {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 36px 32px 100px;
+      position: relative;
+      z-index: 1;
+    }
+    .scene-view { display: none; }
+    .scene-view.active { display: block; animation: appleReveal 0.28s cubic-bezier(0.16, 1, 0.3, 1); }
+    @keyframes appleReveal { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Page Intro */
+    .editorial-eyebrow {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent-warm);
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .editorial-title {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: var(--text-main);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .editorial-lead {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-bottom: 28px;
+      font-weight: 400;
+      max-width: 720px;
+    }
+
+    /* Apple Pro Ceramic Card */
+    .pro-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 18px;
+      box-shadow: var(--shadow-apple-md), var(--inner-sheen);
+      position: relative;
+      overflow: hidden;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .pro-card:hover {
+      border-color: var(--border-strong);
+      box-shadow: var(--shadow-apple-lg), var(--inner-sheen);
+    }
+
+    /* Pill Badges (Restrained Elegance) */
+    .pro-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 10px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: var(--font-mono);
+      letter-spacing: -0.01em;
+      border: 1px solid transparent;
+    }
+    .status-dot-subtle {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .pro-pill.exact { background: rgba(34, 139, 34, 0.12); color: var(--color-user); border-color: rgba(34, 139, 34, 0.2); }
+    .pro-pill.error { background: rgba(217, 56, 58, 0.12); color: var(--color-error); border-color: rgba(217, 56, 58, 0.25); }
+    .pro-pill.warning { background: rgba(217, 119, 6, 0.12); color: var(--color-warning); border-color: rgba(217, 119, 6, 0.2); }
+    .pro-pill.neutral { background: var(--bg-surface-elevated); color: var(--text-secondary); border-color: var(--border-hairline); }
+
+    /* ========================================================================= */
+    /* VIEW 1: EVIDENCE HUB & PRECISION DATA TABLE */
+    /* ========================================================================= */
+    .metric-hero-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .metric-card-body {
+      padding: 22px 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 120px;
+    }
+    .metric-top-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .metric-big-num {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: var(--text-main);
+      font-variant-numeric: tabular-nums;
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+    .metric-footer-note {
+      font-size: 12px;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Search & Filter Toolbar (Google M3 + Apple Simplicity) */
+    .action-toolbar {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      box-shadow: var(--shadow-apple-sm);
+    }
+    .search-box-shell {
+      flex: 1;
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .search-box-shell svg {
+      position: absolute;
+      left: 12px;
+      color: var(--text-muted);
+      width: 16px;
+      height: 16px;
+    }
+    .search-text-field {
+      width: 100%;
+      background: var(--bg-surface-subtle);
+      border: 1px solid transparent;
+      border-radius: 9px;
+      padding: 8px 12px 8px 38px;
+      font-size: 13px;
+      color: var(--text-main);
+      font-family: inherit;
+      outline: none;
+      transition: all 0.18s ease;
+    }
+    .search-text-field:focus {
+      background: var(--bg-surface);
+      border-color: var(--accent-warm);
+      box-shadow: 0 0 0 3px var(--accent-warm-subtle);
+    }
+
+    .filter-tags-strip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 20px;
+      overflow-x: auto;
+    }
+    .tag-chip {
+      padding: 6px 14px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 500;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .tag-chip:hover {
+      background: var(--bg-surface-elevated);
+      color: var(--text-main);
+    }
+    .tag-chip.selected {
+      background: var(--text-main);
+      color: var(--bg-canvas);
+      border-color: transparent;
+      font-weight: 600;
+    }
+
+    /* Modern Minimalist Table */
+    .table-viewport {
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      overflow: hidden;
+      background: var(--bg-surface);
+      box-shadow: var(--shadow-apple-sm);
+    }
+    .clean-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .clean-table th {
+      padding: 12px 20px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      background: var(--bg-surface-subtle);
+      border-bottom: 1px solid var(--border-subtle);
+      text-align: left;
+    }
+    .clean-table td {
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--border-hairline);
+      vertical-align: middle;
+      font-variant-numeric: tabular-nums;
+    }
+    .clean-table tbody tr {
+      transition: background 0.15s ease;
+      cursor: pointer;
+    }
+    .clean-table tbody tr:hover {
+      background: var(--bg-surface-subtle);
+    }
+    .clean-table tbody tr:last-child td { border-bottom: none; }
+
+    .session-title-block {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .session-hash {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+    .session-sub-path {
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .time-ratio-meter {
+      width: 80px;
+      height: 4px;
+      background: var(--bg-surface-elevated);
+      border-radius: 9999px;
+      overflow: hidden;
+      display: flex;
+      margin-top: 6px;
+    }
+    .time-ratio-meter .active-fill { background: var(--accent-warm); }
+    .time-ratio-meter .idle-fill { background: var(--text-tertiary); opacity: 0.3; }
+
+    /* ========================================================================= */
+    /* VIEW 2: TRACE STUDIO (PRO APM FLAMEGRAPH & CHROME DEVTOOLS RESTRAINT) */
+    /* ========================================================================= */
+    .trace-banner-card {
+      padding: 22px 28px;
+      margin-bottom: 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .trace-banner-info h1 {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .trace-banner-info p {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      margin-top: 4px;
+    }
+
+    /* Minimap Viewport Scrubber */
+    .minimap-container {
+      padding: 14px 20px;
+      margin-bottom: 18px;
+    }
+    .minimap-header-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+    }
+    .minimap-track {
+      height: 36px;
+      background: var(--bg-surface-subtle);
+      border-radius: 9px;
+      border: 1px solid var(--border-hairline);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+    }
+    .minimap-density-ticks {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 0 12px;
+    }
+    .density-bar-item {
+      width: 3px;
+      background: var(--text-muted);
+      opacity: 0.35;
+      border-radius: 2px;
+    }
+    .density-bar-item.err { background: var(--color-error); opacity: 0.9; }
+    .minimap-lens {
+      position: absolute;
+      left: 15%;
+      width: 35%;
+      top: 2px; bottom: 2px;
+      background: var(--accent-warm-subtle);
+      border: 1.5px solid var(--accent-warm);
+      border-radius: 7px;
+      cursor: grab;
+      box-shadow: 0 0 12px rgba(204, 107, 39, 0.2);
+    }
+
+    /* 3-Column Master Studio */
+    .trace-workbench-3col {
+      display: grid;
+      grid-template-columns: 290px 1fr 340px;
+      gap: 14px;
+      height: 620px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: var(--shadow-apple-md);
+    }
+    .col-pane {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+    }
+    .col-pane-left { border-right: 1px solid var(--border-subtle); background: var(--bg-surface-subtle); }
+    .col-pane-right { border-left: 1px solid var(--border-subtle); background: var(--bg-surface-subtle); }
+
+    .pane-title-bar {
+      height: 44px;
+      padding: 0 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border-hairline);
+      background: var(--bg-surface);
+    }
+    .pane-scroll {
+      flex: 1;
+      overflow-y: auto;
+      position: relative;
+    }
+
+    /* Span Call Tree */
+    .tree-item-row {
+      height: 36px;
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      gap: 8px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: background 0.12s ease;
+      border-left: 3px solid transparent;
+      user-select: none;
+    }
+    .tree-item-row:hover { background: var(--bg-surface-elevated); }
+    .tree-item-row.selected {
+      background: var(--bg-surface-elevated);
+      border-left-color: var(--accent-warm);
+      color: var(--text-main);
+      font-weight: 600;
+    }
+    .tree-kind-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .tree-kind-dot.user { background: var(--color-user); }
+    .tree-kind-dot.model { background: var(--color-model); }
+    .tree-kind-dot.tool { background: var(--color-tool); }
+    .tree-kind-dot.error { background: var(--color-error); }
+    .tree-item-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tree-item-ms { font-size: 11px; font-family: var(--font-mono); color: var(--text-muted); }
+
+    /* Gantt Waterfall Visualizer (Restrained & Elegant) */
+    .time-scale-bar {
+      height: 32px;
+      border-bottom: 1px solid var(--border-hairline);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 18px;
+      font-size: 10px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      background: var(--bg-surface);
+    }
+    .gantt-canvas-scroll {
+      flex: 1;
+      overflow-y: auto;
+      background: var(--bg-canvas);
+      position: relative;
+    }
+    .gantt-canvas-scroll::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-size: 25% 100%;
+      background-image: linear-gradient(to right, var(--border-hairline) 1px, transparent 1px);
+      pointer-events: none;
+    }
+
+    .flame-row {
+      height: 36px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      border-bottom: 1px solid var(--border-hairline);
+      padding: 0 18px;
+    }
+    .flame-capsule {
+      position: absolute;
+      height: 22px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: white;
+      font-weight: 600;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15), var(--inner-sheen);
+    }
+    .flame-capsule:hover {
+      filter: brightness(1.15);
+      transform: scaleY(1.08);
+      z-index: 10;
+    }
+    .flame-capsule.user { background: var(--color-user); }
+    .flame-capsule.model { background: var(--color-model); }
+    .flame-capsule.tool { background: var(--color-tool); }
+    .flame-capsule.error { background: var(--color-error); }
+
+    /* Synchronized Bottom Telemetry (Claude/Google Precision) */
+    .telemetry-split-tray {
+      height: 150px;
+      border-top: 1px solid var(--border-subtle);
+      background: var(--bg-surface);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      padding: 14px 20px;
+      gap: 20px;
+    }
+    .telemetry-card {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .telemetry-card-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-secondary);
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+    }
+    .telemetry-svg {
+      width: 100%;
+      height: 90px;
+    }
+
+    /* Inspector Panel */
+    .inspector-pane-body {
+      padding: 20px;
+      font-size: 12px;
+    }
+    .inspector-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 2px;
+      word-break: break-all;
+    }
+    .detail-table {
+      display: grid;
+      grid-template-columns: 80px 1fr;
+      gap: 10px;
+      margin: 16px 0;
+      font-size: 12px;
+      padding: 12px 14px;
+      background: var(--bg-surface);
+      border-radius: 10px;
+      border: 1px solid var(--border-hairline);
+    }
+    .detail-table dt { color: var(--text-muted); }
+    .detail-table dd { font-family: var(--font-mono); font-weight: 600; color: var(--text-main); }
+
+    .code-box-clean {
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      border-radius: 9px;
+      padding: 12px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      line-height: 1.5;
+      max-height: 230px;
+      overflow: auto;
+      color: var(--color-tool);
+    }
+
+    /* ========================================================================= */
+    /* VIEW 3: CLAUDE EDITORIAL DIAGNOSTICS & BENTO MATRIX */
+    /* ========================================================================= */
+    .editorial-hero-card {
+      background: var(--bg-surface);
+      border: 1px solid rgba(217, 56, 58, 0.3);
+      border-radius: 18px;
+      padding: 26px 32px;
+      margin-bottom: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 8px 30px -6px rgba(217, 56, 58, 0.1);
+    }
+    .editorial-hero-card h2 {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--color-error);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      letter-spacing: -0.02em;
+    }
+    .editorial-hero-card p {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+      max-width: 820px;
+    }
+
+    .bento-editorial-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+      margin-bottom: 32px;
+    }
+    .bento-editorial-tile {
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 190px;
+    }
+    .bento-tile-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    .bento-tile-tag {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .bento-tile-main {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--text-main);
+      margin: 8px 0 4px;
+    }
+    .bento-tile-summary {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }
+    .bento-tile-anchor {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent-warm);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 12px;
+      transition: gap 0.15s ease;
+    }
+    .bento-tile-anchor:hover { gap: 8px; }
+
+    .action-playbook-card {
+      padding: 28px 32px;
+    }
+    .playbook-step {
+      display: flex;
+      gap: 16px;
+      padding: 18px 0;
+      border-bottom: 1px solid var(--border-hairline);
+      font-size: 14px;
+    }
+    .playbook-step:last-child { border-bottom: none; }
+    .playbook-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      flex-shrink: 0;
+      background: var(--bg-surface-elevated);
+      color: var(--accent-warm);
+      border: 1px solid var(--border-subtle);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Sticky Navigation Bar -->
+  <header class="header-nav">
+    <div class="brand-cluster">
+      <div class="brand-mark">S</div>
+      <div class="brand-title-wrap">
+        <span class="brand-main-text">Session Insights</span>
+        <span class="brand-sub-text">Claude & Apple Inspired</span>
+      </div>
+    </div>
+
+    <!-- Apple-style Segmented View Switcher -->
+    <nav class="segmented-tabs">
+      <button class="tab-item-btn active" onclick="activateScene('library')">
+        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+        会话证据库
+      </button>
+      <button class="tab-item-btn" onclick="activateScene('trace')">
+        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        Trace 时序分析
+      </button>
+      <button class="tab-item-btn" onclick="activateScene('report')">
+        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        诊断评估报告
+      </button>
+    </nav>
+
+    <div class="header-actions">
+      <button class="btn-apple btn-apple-primary">
+        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        导入 Session
+      </button>
+      <button class="btn-apple theme-round-btn" onclick="toggleColorMode()" title="切换浅色 / 深色模式">
+        <span id="theme-glyph">☼</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="content-stage">
+
+    <!-- ========================================================================= -->
+    <!-- VIEW 1: 会话证据库 (EVIDENCE HUB) -->
+    <!-- ========================================================================= -->
+    <section id="scene-library" class="scene-view active">
+      <div class="editorial-eyebrow">Local Session Observability</div>
+      <div class="editorial-title">
+        会话证据库
+        <span class="pro-pill neutral">84 SESSIONS</span>
+      </div>
+      <p class="editorial-lead">从本地 Agent 运行记录中精确定位墙钟耗时、工具失败、上下文压力与用户意图纠偏。</p>
+
+      <!-- 4-KPI Metric Row -->
+      <div class="metric-hero-grid">
+        <div class="pro-card metric-card-body">
+          <div class="metric-top-label">
+            <span>总追踪 Tokens</span>
+            <span class="pro-pill exact"><span class="status-dot-subtle"></span>精确推导</span>
+          </div>
+          <div class="metric-big-num">2.41 亿 <span style="font-size: 13px; font-weight: 400; color: var(--text-muted);">tokens</span></div>
+          <div class="metric-footer-note">
+            <span style="color: var(--color-user); font-weight: 600;">↑ 14.2%</span> 较上周活跃会话提升
+          </div>
+        </div>
+
+        <div class="pro-card metric-card-body">
+          <div class="metric-top-label">
+            <span>结构化异常失败</span>
+            <span class="pro-pill error"><span class="status-dot-subtle"></span>需重点关注</span>
+          </div>
+          <div class="metric-big-num" style="color: var(--color-error);">14 <span style="font-size: 13px; font-weight: 400; color: var(--text-muted);">次错误</span></div>
+          <div class="metric-footer-note">集中于参数超限场景</div>
+        </div>
+
+        <div class="pro-card metric-card-body">
+          <div class="metric-top-label">
+            <span>上下文高水位 (>80%)</span>
+            <span class="pro-pill warning"><span class="status-dot-subtle"></span>3 条会话</span>
+          </div>
+          <div class="metric-big-num" style="color: var(--color-warning);">90% <span style="font-size: 13px; font-weight: 400; color: var(--text-muted);">峰值</span></div>
+          <div class="metric-footer-note">建议开启长会话 Compact</div>
+        </div>
+
+        <div class="pro-card metric-card-body">
+          <div class="metric-top-label">
+            <span>Prompt Cache 命中</span>
+            <span class="pro-pill exact"><span class="status-dot-subtle"></span>精确</span>
+          </div>
+          <div class="metric-big-num">94.1%</div>
+          <div class="metric-footer-note">节省约 68% 推理等待时间</div>
+        </div>
+      </div>
+
+      <!-- Action Search Bar -->
+      <div class="action-toolbar">
+        <div class="search-box-shell">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+          <input type="text" class="search-text-field" placeholder="按 Session ID、项目路径、智能体或 Tool 搜索... (⌘K)">
+        </div>
+        <button class="btn-apple">智能体: 全部 ▾</button>
+        <button class="btn-apple">质量等级 ▾</button>
+        <button class="btn-apple">更多筛选 ⚙</button>
+      </div>
+
+      <!-- Filter Tags -->
+      <div class="filter-tags-strip">
+        <button class="tag-chip selected">全部会话 (84)</button>
+        <button class="tag-chip"><span class="status-dot-subtle" style="color: var(--color-error);"></span> 存在工具失败 (6)</button>
+        <button class="tag-chip"><span class="status-dot-subtle" style="color: var(--color-warning);"></span> 上下文超载 >80% (3)</button>
+        <button class="tag-chip"><span class="status-dot-subtle" style="color: var(--accent-warm);"></span> 命中纠偏候选 (11)</button>
+        <button class="tag-chip">⏱ 耗时 >10m (18)</button>
+      </div>
+
+      <!-- Clean Data Table -->
+      <div class="table-viewport">
+        <table class="clean-table">
+          <thead>
+            <tr>
+              <th style="width: 36px;"><input type="checkbox"></th>
+              <th>SESSION / 项目</th>
+              <th>智能体 / 模型</th>
+              <th>开始时间</th>
+              <th>墙钟 / 活跃构成</th>
+              <th>Tracked Tokens</th>
+              <th>Cache</th>
+              <th>Tools / 失败</th>
+              <th>纠偏</th>
+              <th>Context 水位</th>
+              <th>证据</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr onclick="activateScene('trace')">
+              <td><input type="checkbox" checked></td>
+              <td>
+                <div class="session-title-block">
+                  <span class="session-hash">01a04c38-e2b9-7241-a8eb-af5d3e01a8e9</span>
+                  <span class="session-sub-path">📁 agent-context</span>
+                </div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">🤖 Codex</div>
+                <div style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">gpt-5.6-sol</div>
+              </td>
+              <td style="color: var(--text-secondary); font-size: 12px;">2026/08/29 14:33</td>
+              <td>
+                <div style="font-weight: 600;">4h 28m</div>
+                <div class="time-ratio-meter" title="活跃 1h 8m / 空档 3h 20m">
+                  <div class="active-fill" style="width: 25%;"></div>
+                  <div class="idle-fill" style="width: 75%;"></div>
+                </div>
+              </td>
+              <td style="font-weight: 700; font-family: var(--font-mono);">2,404.4万</td>
+              <td><span class="pro-pill exact">94%</span></td>
+              <td>
+                <div>385 次</div>
+                <span class="pro-pill error" style="font-size: 10px; padding: 1px 6px;">🔴 14 失败</span>
+              </td>
+              <td><span class="pro-pill warning">11 候选</span></td>
+              <td><span class="pro-pill error">90% 峰值</span></td>
+              <td><span class="pro-pill exact">●●● 确证</span></td>
+            </tr>
+
+            <tr onclick="activateScene('trace')">
+              <td><input type="checkbox"></td>
+              <td>
+                <div class="session-title-block">
+                  <span class="session-hash">claude-root-ref-0830</span>
+                  <span class="session-sub-path">📁 frontend-monorepo</span>
+                </div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">🟣 Claude</div>
+                <div style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">claude-3.5-sonnet</div>
+              </td>
+              <td style="color: var(--text-secondary); font-size: 12px;">2026/08/30 19:00</td>
+              <td>
+                <div style="font-weight: 600;">4s</div>
+                <div class="time-ratio-meter" title="活跃 4s">
+                  <div class="active-fill" style="width: 100%;"></div>
+                </div>
+              </td>
+              <td style="font-weight: 700; font-family: var(--font-mono);">165 tokens</td>
+              <td><span class="pro-pill neutral">12%</span></td>
+              <td>
+                <div>2 次</div>
+                <span class="pro-pill error" style="font-size: 10px; padding: 1px 6px;">🔴 1 失败</span>
+              </td>
+              <td><span style="color: var(--text-tertiary);">—</span></td>
+              <td><span class="pro-pill neutral">12%</span></td>
+              <td><span class="pro-pill neutral">●●○ 观测</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- VIEW 2: TRACE STUDIO (PRO APM FLAMEGRAPH) -->
+    <!-- ========================================================================= -->
+    <section id="scene-trace" class="scene-view">
+      <!-- Hero Detail Bar -->
+      <div class="pro-card trace-banner-card">
+        <div class="trace-banner-info">
+          <div class="editorial-eyebrow">CODEX · GPT-5.6-SOL · AGENT-CONTEXT</div>
+          <h1>
+            01a04c38-e2b9-7241-a8eb-af5d3e01a8e9
+            <span class="pro-pill error"><span class="status-dot-subtle"></span>2 类高危阻断</span>
+          </h1>
+          <p>共 1,010 个调用事件 · 跨度 4h 28m · 关联 7 种 Skill</p>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button class="btn-apple btn-apple-primary" onclick="activateScene('report')">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            生成诊断报告
+          </button>
+          <button class="btn-apple">⫘ 加入对比</button>
+        </div>
+      </div>
+
+      <!-- Minimap Scrubber -->
+      <div class="pro-card minimap-container">
+        <div class="minimap-header-row">
+          <span>全生命周期视窗导航 (Timeline Brush & Zoom)</span>
+          <span>当前范围: 00:00 ~ 45:00 (压缩空档模式 ◉)</span>
+        </div>
+        <div class="minimap-track">
+          <div class="minimap-density-ticks">
+            <div class="density-bar-item" style="height: 14px;"></div>
+            <div class="density-bar-item" style="height: 22px;"></div>
+            <div class="density-bar-item err" style="height: 30px;"></div>
+            <div class="density-bar-item" style="height: 16px;"></div>
+            <div class="density-bar-item" style="height: 26px;"></div>
+            <div class="density-bar-item err" style="height: 32px;"></div>
+            <div class="density-bar-item" style="height: 18px;"></div>
+            <div class="density-bar-item" style="height: 28px;"></div>
+          </div>
+          <div class="minimap-lens" title="拖拽调整可视范围"></div>
+        </div>
+      </div>
+
+      <!-- 3-Column Studio -->
+      <div class="trace-workbench-3col">
+        <!-- Col 1: Span Tree -->
+        <div class="col-pane col-pane-left">
+          <div class="pane-title-bar">
+            <span>事件调用层级 (1,010)</span>
+            <span style="font-family: var(--font-mono); font-size: 10px;">⌘F 搜索</span>
+          </div>
+          <div class="pane-scroll">
+            <div class="tree-item-row">
+              <span class="tree-kind-dot user"></span>
+              <span class="tree-item-title">User: "请分析多任务..."</span>
+              <span class="tree-item-ms">1s</span>
+            </div>
+            <div class="tree-item-row" style="padding-left: 24px;">
+              <span class="tree-kind-dot model"></span>
+              <span class="tree-item-title">Reasoning (思考中)</span>
+              <span class="tree-item-ms">4s</span>
+            </div>
+            <div class="tree-item-row selected" style="padding-left: 24px;">
+              <span class="tree-kind-dot error"></span>
+              <span class="tree-item-title">codex_app.list_threads</span>
+              <span class="tree-item-ms">1.2s</span>
+            </div>
+            <div class="tree-item-row" style="padding-left: 36px;">
+              <span class="tree-kind-dot tool"></span>
+              <span class="tree-item-title">search_code</span>
+              <span class="tree-item-ms">2.4s</span>
+            </div>
+            <div class="tree-item-row">
+              <span class="tree-kind-dot model"></span>
+              <span class="tree-item-title">Agent Response (分块生成)</span>
+              <span class="tree-item-ms">5s</span>
+            </div>
+            <div class="tree-item-row" style="padding-left: 24px;">
+              <span class="tree-kind-dot tool"></span>
+              <span class="tree-item-title">remember_fact</span>
+              <span class="tree-item-ms">0.8s</span>
+            </div>
+            <div class="tree-item-row" style="padding-left: 24px;">
+              <span class="tree-kind-dot model"></span>
+              <span class="tree-item-title">Subagent: Explore</span>
+              <span class="tree-item-ms">12s</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Col 2: Waterfall Flamegraph + Telemetry -->
+        <div class="col-pane">
+          <div class="time-scale-bar">
+            <span>00:00</span>
+            <span>15:00</span>
+            <span>30:00</span>
+            <span>45:00</span>
+            <span>01:15:00</span>
+          </div>
+          <div class="gantt-canvas-scroll">
+            <div class="flame-row">
+              <div class="flame-capsule user" style="left: 2%; width: 6%;">User 1s</div>
+            </div>
+            <div class="flame-row">
+              <div class="flame-capsule model" style="left: 8%; width: 14%;">Reasoning 4s</div>
+            </div>
+            <div class="flame-row">
+              <div class="flame-capsule error" style="left: 22%; width: 12%;">🔴 list_threads (Fail)</div>
+            </div>
+            <div class="flame-row">
+              <div class="flame-capsule tool" style="left: 34%; width: 10%;">search_code 2.4s</div>
+            </div>
+            <div class="flame-row">
+              <div class="flame-capsule model" style="left: 44%; width: 18%;">Agent Response 5s</div>
+            </div>
+            <div class="flame-row">
+              <div class="flame-capsule tool" style="left: 62%; width: 8%;">remember 0.8s</div>
+            </div>
+            <div class="flame-row">
+              <div class="flame-capsule model" style="left: 70%; width: 26%;">Subagent Explore 12s</div>
+            </div>
+          </div>
+
+          <!-- Bottom Telemetry -->
+          <div class="telemetry-split-tray">
+            <div class="telemetry-card">
+              <div class="telemetry-card-title">
+                <span>⚡️ TOKEN PULSE (消耗脉冲)</span>
+                <span style="color: var(--accent-warm);">PEAK: 23.2W</span>
+              </div>
+              <svg class="telemetry-svg" viewBox="0 0 300 60" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="warmGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="var(--accent-warm)" stop-opacity="0.4"/>
+                    <stop offset="100%" stop-color="var(--accent-warm)" stop-opacity="0.0"/>
+                  </linearGradient>
+                </defs>
+                <path d="M0,55 L30,55 L45,18 L60,55 L100,55 L120,8 L140,55 L200,55 L220,12 L250,55 L300,55" fill="url(#warmGrad)" stroke="var(--accent-warm)" stroke-width="2"/>
+              </svg>
+            </div>
+
+            <div class="telemetry-card">
+              <div class="telemetry-card-title">
+                <span>📈 CONTEXT 水位 (80% 警戒线)</span>
+                <span style="color: var(--color-error);">90% 峰值</span>
+              </div>
+              <svg class="telemetry-svg" viewBox="0 0 300 60" preserveAspectRatio="none">
+                <line x1="0" y1="16" x2="300" y2="16" stroke="var(--color-error)" stroke-dasharray="4 4" stroke-width="1.5"/>
+                <path d="M0,50 L50,45 L100,35 L150,28 L200,10 L250,12 L300,45" fill="none" stroke="var(--color-warning)" stroke-width="2"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Col 3: Inspector -->
+        <div class="col-pane col-pane-right">
+          <div class="pane-title-bar">
+            <span>INSPECTOR 证据详情</span>
+            <span class="pro-pill error">🔴 Schema Error</span>
+          </div>
+          <div class="pane-scroll inspector-pane-body">
+            <div class="inspector-title">codex_app.list_threads</div>
+            <div style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">SPAN_ID: span-0412-e2b9</div>
+
+            <dl class="detail-table">
+              <dt>事件类型</dt>
+              <dd>tool_execution</dd>
+              <dt>触发时刻</dt>
+              <dd>43.1s (Offset)</dd>
+              <dt>耗时时间</dt>
+              <dd>1.24s</dd>
+              <dt>证据可信</dt>
+              <dd><span class="pro-pill exact">Exact 确证</span></dd>
+            </dl>
+
+            <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); margin: 14px 0 6px;">
+              ERROR PAYLOAD SCHEMA:
+            </div>
+            <pre class="code-box-clean">{
+  "error": "Invalid arguments",
+  "field": "limit",
+  "message": "Too big: expected <= 50",
+  "received": 100,
+  "isError": true
+}</pre>
+
+            <div style="margin-top: 14px;">
+              <button class="btn-apple" style="width: 100%; justify-content: center;">
+                📋 一键复制完整 Payload
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- VIEW 3: CLAUDE EDITORIAL DIAGNOSTICS REPORT -->
+    <!-- ========================================================================= -->
+    <section id="scene-report" class="scene-view">
+      <div class="editorial-eyebrow">Executive Diagnostics</div>
+      <div class="editorial-title">
+        Session 运行健康与风险评估报告
+        <span class="pro-pill error">GRADE: C+</span>
+      </div>
+      <p class="editorial-lead">基于确定性证据链生成，提供结构化根因定位与工程防御建议。</p>
+
+      <!-- Danger Hero Banner -->
+      <div class="editorial-hero-card">
+        <div>
+          <h2>
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            综合健康度告警: 发现 2 项高危阻断与 11 项纠偏候选
+          </h2>
+          <p>工具连续入参越界引发 14 次结构化重试；会话后期上下文水位常驻 90%，存在显著遗忘与延迟增加风险。</p>
+        </div>
+        <button class="btn-apple btn-apple-primary" onclick="activateScene('trace')">
+          在 Trace 中复查证据 →
+        </button>
+      </div>
+
+      <!-- Bento Grid (Claude Warm Style) -->
+      <div class="bento-editorial-grid">
+        <div class="pro-card bento-editorial-tile">
+          <div class="bento-tile-header">
+            <span class="bento-tile-tag">🔴 工具失败证据</span>
+            <span class="pro-pill exact">确证</span>
+          </div>
+          <div>
+            <div class="bento-tile-main" style="color: var(--color-error);">14 个结构化失败</div>
+            <div class="bento-tile-summary">集中在 `codex_app.list_threads` 参数校验越界环节。</div>
+          </div>
+          <a href="#" class="bento-tile-anchor" onclick="activateScene('trace')">定位首个失败时刻 [43.1s] ↗</a>
+        </div>
+
+        <div class="pro-card bento-editorial-tile">
+          <div class="bento-tile-header">
+            <span class="bento-tile-tag">⚠️ 上下文过载</span>
+            <span class="pro-pill warning">观测</span>
+          </div>
+          <div>
+            <div class="bento-tile-main" style="color: var(--color-warning);">90% Peak 水位</div>
+            <div class="bento-tile-summary">发生在会话第 3h 14m，已逼近该模型 Window 物理上限。</div>
+          </div>
+          <a href="#" class="bento-tile-anchor" onclick="activateScene('trace')">查看上下文激增区间 ↗</a>
+        </div>
+
+        <div class="pro-card bento-editorial-tile">
+          <div class="bento-tile-header">
+            <span class="bento-tile-tag">⚡️ 单次 Token 峰值</span>
+            <span class="pro-pill exact">推导</span>
+          </div>
+          <div>
+            <div class="bento-tile-main">23.2 万 Tokens</div>
+            <div class="bento-tile-summary">发生在大型代码生成与跨目录批量检索合并节点。</div>
+          </div>
+          <a href="#" class="bento-tile-anchor" onclick="activateScene('trace')">定位 Token 激增 Span ↗</a>
+        </div>
+
+        <div class="pro-card bento-editorial-tile">
+          <div class="bento-tile-header">
+            <span class="bento-tile-tag">⏸ 墙钟空档占比</span>
+            <span class="pro-pill neutral">统计</span>
+          </div>
+          <div>
+            <div class="bento-tile-main">75% (3h 20m)</div>
+            <div class="bento-tile-summary">非执行空档时间（包含本地挂起与外部依赖等待）。</div>
+          </div>
+          <span style="font-size: 11px; color: var(--text-muted);">无事件级单点锚点</span>
+        </div>
+
+        <div class="pro-card bento-editorial-tile">
+          <div class="bento-tile-header">
+            <span class="bento-tile-tag">🧩 Skill 调用偏好</span>
+            <span class="pro-pill exact">启发</span>
+          </div>
+          <div>
+            <div class="bento-tile-main">query · 12 次</div>
+            <div class="bento-tile-summary">整体分布符合典型搜索-修改迭代工作流。</div>
+          </div>
+          <span style="font-size: 11px; color: var(--text-muted);">共涉及 7 种 Skill</span>
+        </div>
+
+        <div class="pro-card bento-editorial-tile">
+          <div class="bento-tile-header">
+            <span class="bento-tile-tag">🔄 用户意图纠偏</span>
+            <span class="pro-pill exact">启发</span>
+          </div>
+          <div>
+            <div class="bento-tile-main">11 次候选纠偏</div>
+            <div class="bento-tile-summary">包含 3 次关键指令修正与 8 次补充约束。</div>
+          </div>
+          <a href="#" class="bento-tile-anchor" onclick="activateScene('trace')">查看纠偏触发点 ↗</a>
+        </div>
+      </div>
+
+      <!-- Actionable Guardrails Playbook -->
+      <div class="pro-card action-playbook-card">
+        <div class="editorial-eyebrow">ACTIONABLE GUARDRAILS PLAYBOOK</div>
+        <div style="font-size: 17px; font-weight: 700; color: var(--text-main); margin-bottom: 16px;">智能诊断与工程防御建议</div>
+
+        <div class="playbook-step">
+          <div class="playbook-num">1</div>
+          <div>
+            <strong style="color: var(--text-main);">固化 Tool 结构化入参契约</strong>
+            <p style="color: var(--text-secondary); margin-top: 4px;">
+              `codex_app.list_threads` 多次因 `limit: 100 > 50` 报错。建议在 Prompt 中显式下发分页约束，或在 SDK 适配层做入参自动裁剪截断。
+            </p>
+          </div>
+        </div>
+
+        <div class="playbook-step">
+          <div class="playbook-num">2</div>
+          <div>
+            <strong style="color: var(--text-main);">开启长会话中间态压缩 (Compact)</strong>
+            <p style="color: var(--text-secondary); margin-top: 4px;">
+              会话 2 小时后上下文常驻 85% 以上。建议在上下文水位触碰 70% 阈值时触发自动中间代码摘要与冗余日志清理。
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    function activateScene(sceneId) {
+      document.querySelectorAll('.scene-view').forEach(v => v.classList.remove('active'));
+      document.querySelectorAll('.tab-item-btn').forEach(b => b.classList.remove('active'));
+
+      document.getElementById('scene-' + sceneId).classList.add('active');
+
+      const sceneMap = { 'library': 0, 'trace': 1, 'report': 2 };
+      document.querySelectorAll('.tab-item-btn')[sceneMap[sceneId]].classList.add('active');
+    }
+
+    function toggleColorMode() {
+      const html = document.documentElement;
+      const glyph = document.getElementById('theme-glyph');
+      if (html.classList.contains('dark')) {
+        html.classList.remove('dark');
+        glyph.textContent = '☽';
+      } else {
+        html.classList.add('dark');
+        glyph.textContent = '☼';
+      }
+    }
+  </script>
+</body>
+</html>

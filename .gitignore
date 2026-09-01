@@ -1,0 +1,29 @@
+node_modules
+dist
+*.log
+.DS_Store
+.envrc
+
+# build outputs
+.turbo
+*.tsbuildinfo
+
+# env
+.env*
+
+# test artifacts
+coverage
+test-results/
+playwright-report/
+
+# Local visual-review captures. These are screenshots of real local sessions
+# (project names, session ids, model names), so they stay off the repo.
+.artifacts/
+
+# local session-explorer index (when SESSION_EXPLORER_DATA points inside the repo)
+.session-explorer/
+
+# local settings
+.claude/
+.tool-versions
+.idea

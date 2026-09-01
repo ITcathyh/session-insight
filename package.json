@@ -1,0 +1,31 @@
+{
+  "name": "session-explorer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "explorer": "bash scripts/start-session-explorer.sh",
+    "dev": "turbo dev --filter=@session-explorer/app",
+    "build": "turbo build",
+    "typecheck": "turbo typecheck",
+    "test": "turbo test",
+    "lint": "turbo lint",
+    "test:e2e": "pnpm --filter @session-explorer/app test:e2e",
+    "clean": "turbo clean && rm -rf node_modules"
+  },
+  "packageManager": "pnpm@10.28.2",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ],
+    "overrides": {
+      "@types/react": "catalog:",
+      "@types/react-dom": "catalog:"
+    }
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "turbo": "^2.5.4",
+    "typescript": "catalog:"
+  }
+}
