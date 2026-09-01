@@ -4,9 +4,9 @@ Guidance for AI agents working in this repository. `CLAUDE.md` points here; this
 
 ## What this repository is
 
-**Session Explorer** — a local-only analyzer for Codex, Claude Code, and TraeX session logs. It ships a Go server and a React frontend that import or scan JSONL session files and render token pulses, traces, tool and skill usage, verification signals, sub-agents, idle gaps, and likely corrections.
+**Session Insight** — a local-only analyzer for Codex, Claude Code, and TraeX session logs. It ships a Go server and a React frontend that import or scan JSONL session files and render token pulses, traces, tool and skill usage, verification signals, sub-agents, idle gaps, and likely corrections.
 
-Session Explorer needs no database, no login, and no server-side account model — one binary plus one JSON index. Don't reintroduce that machinery: an issue tracker, workspaces, auth, PostgreSQL, or a background daemon are all out of scope here.
+Session Insight needs no database, no login, and no server-side account model — one binary plus one JSON index. Don't reintroduce that machinery: an issue tracker, workspaces, auth, PostgreSQL, or a background daemon are all out of scope here.
 
 The entire codebase is ~12k lines across three Go packages and one React app. Read the whole of a file before changing it.
 
@@ -16,7 +16,7 @@ These are not style preferences. Each one is a property the tool is expected to 
 
 **This tool reads private transcripts.** Everything below follows from that.
 
-- **Loopback only.** `cmd/session-explorer` refuses to start on a non-loopback `--addr`. Never add a flag, default, or "convenience" path that binds a routable interface. There is no auth layer behind it.
+- **Loopback only.** `cmd/session-insight` refuses to start on a non-loopback `--addr`. Never add a flag, default, or "convenience" path that binds a routable interface. There is no auth layer behind it.
 - **The index never stores transcript bodies.** `index.json` holds run summaries plus one bounded title line per run. Event traces go to `runs/<run-id>/trace.json`, separately, so listing the library never reads transcripts.
 - **Excerpts stay bounded.** Conversation turns cap at 8 KiB (`maxConversationExcerptBytes`), tool input/output/errors at 640 bytes (`maxTraceExcerptBytes`). Raising either grows every stored trace on disk — measure before you touch it.
 - **Original session files are read-only.** Scanning aggregates; it never writes to, moves, or deletes a user's `~/.codex`, `~/.claude`, or `~/.trae` files. Uploads land in a temp dir that is deleted when the request ends.
@@ -38,7 +38,7 @@ The UI's whole purpose is telling a user what actually happened in a run. Fabric
 ## Architecture
 
 ```
-apps/session-explorer/          React 19 + Vite + react-router-dom
+apps/session-insight/          React 19 + Vite + react-router-dom
   src/app.tsx                   All five workspaces (large; read before editing)
   src/insights.tsx              Cross-session aggregate view
   src/trace-visualization.tsx   Tree, waterfall, synchronized tracks
@@ -46,18 +46,18 @@ apps/session-explorer/          React 19 + Vite + react-router-dom
   src/transcript.ts             Unwraps runtime-injected shell tags
 
 server/internal/sessioninsight/ Parser. Pure standard library, zero internal deps.
-server/internal/sessionexplorer/ HTTP handlers + atomic JSON index store.
-server/cmd/session-explorer/    main: flag parsing, loopback guard, graceful shutdown.
+server/internal/sessionstore/ HTTP handlers + atomic JSON index store.
+server/cmd/session-insight/    main: flag parsing, loopback guard, graceful shutdown.
 ```
 
-Dependency direction is strictly one-way: `cmd → sessionexplorer → sessioninsight`. `sessioninsight` imports nothing from this repository; keep it that way, it is what makes the parser testable in isolation.
+Dependency direction is strictly one-way: `cmd → sessionstore → sessioninsight`. `sessioninsight` imports nothing from this repository; keep it that way, it is what makes the parser testable in isolation.
 
 Frontend routes: `/` (Library), `/insights` (aggregate), `/sessions/:id` (Trace), `/compare`, `/report`.
 
 ## Commands
 
 ```bash
-pnpm explorer          # Build frontend, start server on 127.0.0.1:4788
+pnpm insight          # Build frontend, start server on 127.0.0.1:4788
 make check             # typecheck + lint + unit tests, both languages
 make test-go           # cd server && go test ./...
 make test-ts           # vitest
@@ -67,8 +67,8 @@ make test-e2e          # Playwright — builds and boots a real server
 Override the address or index location:
 
 ```bash
-SESSION_EXPLORER_ADDR=127.0.0.1:5799 pnpm explorer
-SESSION_EXPLORER_DATA="$PWD/.session-explorer/index.json" pnpm explorer
+SESSION_INSIGHT_ADDR=127.0.0.1:5799 pnpm insight
+SESSION_INSIGHT_DATA="$PWD/.session-insight/index.json" pnpm insight
 ```
 
 ## Coding rules
@@ -87,14 +87,14 @@ Tests sit next to the code they cover.
 | What | Where | Runner |
 |---|---|---|
 | Parser behavior, provider detection | `server/internal/sessioninsight/*_test.go` | `go test` |
-| Index store, HTTP handlers, stats | `server/internal/sessionexplorer/*_test.go` | `go test` |
-| Loopback guard, shutdown | `server/cmd/session-explorer/main_test.go` | `go test` |
-| Components, Markdown, transcript unwrapping | `apps/session-explorer/src/*.test.tsx` | vitest, jsdom |
-| Full import → search → trace → compare flows | `apps/session-explorer/e2e/` | Playwright |
+| Index store, HTTP handlers, stats | `server/internal/sessionstore/*_test.go` | `go test` |
+| Loopback guard, shutdown | `server/cmd/session-insight/main_test.go` | `go test` |
+| Components, Markdown, transcript unwrapping | `apps/session-insight/src/*.test.tsx` | vitest, jsdom |
+| Full import → search → trace → compare flows | `apps/session-insight/e2e/` | Playwright |
 
 Parser fixtures live in `server/internal/sessioninsight/testdata/` — real-shaped JSONL for all three providers, including the edge cases (Claude sub-agent files, `backups/` dirs that must be skipped, legacy TraeX paths). Add a fixture when you add a parsing rule.
 
-Two fixtures carry scale, and both are generated by `apps/session-explorer/e2e/fixtures.ts`:
+Two fixtures carry scale, and both are generated by `apps/session-insight/e2e/fixtures.ts`:
 
 - `testdata/codex-large/session.jsonl` — a checked-in ~1000-event Codex run. `TestLargeCodexSessionTraceReconciles` and `TestLargeCodexImport` use it to check the invariants that only show up at size: unique event IDs, no orphaned parents, token pulses reconciling with the aggregate, and wall = active + idle.
 - The same generator produces the e2e upload at runtime, and **exports every number the spec asserts on** (`CODEX_TRACE_EVENTS`, `CODEX_TRACKED_TOKENS_LABEL`, …) so a fixture change can't silently invalidate an assertion.
@@ -127,4 +127,4 @@ Conventional format, atomic by intent: `feat(explorer)`, `fix(parser)`, `refacto
 
 ## Further reading
 
-`docs/session-explorer.md` (Chinese) is the user-facing behavior spec — what the five workspaces do, why events are denoised, how titles are derived, where data lands. Read it before changing UI behavior, and update it when behavior changes.
+`docs/session-insight.md` (Chinese) is the user-facing behavior spec — what the five workspaces do, why events are denoised, how titles are derived, where data lands. Read it before changing UI behavior, and update it when behavior changes.

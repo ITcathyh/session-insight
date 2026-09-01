@@ -55,7 +55,7 @@ importers:
         specifier: 'catalog:'
         version: 5.9.3
 
-  apps/session-explorer:
+  apps/session-insight:
     dependencies:
       react:
         specifier: 'catalog:'
@@ -70,7 +70,7 @@ importers:
       '@playwright/test':
         specifier: ^1.58.2
         version: 1.58.2
-      '@session-explorer/eslint-config':
+      '@session-insight/eslint-config':
         specifier: workspace:*
         version: link:../../packages/eslint-config
       '@testing-library/jest-dom':

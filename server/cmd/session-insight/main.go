@@ -1,4 +1,4 @@
-// session-explorer is a privacy-preserving local UI/API for Codex and Claude sessions.
+// session-insight is a privacy-preserving local UI/API for Codex and Claude sessions.
 package main
 
 import (
@@ -15,7 +15,7 @@ import (
 	"syscall"
 	"time"
 
-	"session-explorer/server/internal/sessionexplorer"
+	"github.com/ITcathyh/session-insight/server/internal/sessionstore"
 )
 
 const shutdownWindow = 30 * time.Second
@@ -31,7 +31,7 @@ func main() {
 	if *data != "" {
 		*data = filepath.Clean(*data)
 	}
-	explorer, err := sessionexplorer.New(sessionexplorer.Config{DataFile: *data, WebDir: *web})
+	explorer, err := sessionstore.New(sessionstore.Config{DataFile: *data, WebDir: *web})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -39,7 +39,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Fprintf(os.Stderr, "Session Explorer listening on http://%s\n", listener.Addr())
+	fmt.Fprintf(os.Stderr, "Session Insight listening on http://%s\n", listener.Addr())
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	if err := serveUntilSignal(ctx, listener, explorer.Handler()); err != nil {

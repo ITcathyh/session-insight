@@ -1,14 +1,14 @@
-# Session Explorer
+# Session Insight
 
 **English | [简体中文](README.zh-CN.md)**
 
 A local-only analyzer for **Codex**, **Claude Code**, and **TraeX** session logs.
 
-Your coding agent leaves a JSONL transcript behind after every run. Session Explorer reads those files and answers the questions the transcript makes hard: where did the tokens go, which tool kept failing, how much of that four-hour run was actually idle, and what changed between the run that worked and the run that didn't.
+Your coding agent leaves a JSONL transcript behind after every run. Session Insight reads those files and answers the questions the transcript makes hard: where did the tokens go, which tool kept failing, how much of that four-hour run was actually idle, and what changed between the run that worked and the run that didn't.
 
 It runs entirely on your machine — a single Go binary bound to loopback, plus a local JSON index. No account, no database, no network calls.
 
-<img src="docs/assets/library.png" alt="Session Explorer library view" width="100%">
+<img src="docs/assets/library.png" alt="Session Insight library view" width="100%">
 
 ## Quick start
 
@@ -16,7 +16,7 @@ Requires Node.js 20+, pnpm 10+, and Go 1.26+.
 
 ```bash
 pnpm install
-pnpm explorer
+pnpm insight
 ```
 
 Open <http://127.0.0.1:4788>. Click **扫描本机** to index the sessions already on your machine, or upload JSONL files and directories directly.
@@ -60,7 +60,7 @@ This tool exists to read your private transcripts, so its boundaries are deliber
 - **Uploads are transient.** Uploaded files sit in a protected temp directory only for the duration of the parse, then get deleted.
 - **Zero third-party Go dependencies.** The server is standard library only, and CI fails the build if a dependency appears.
 
-Data lands in your OS config directory by default — `~/Library/Application Support/session-explorer/index.json` on macOS, `~/.config/session-explorer/index.json` on Linux.
+Data lands in your OS config directory by default — `~/Library/Application Support/session-insight/index.json` on macOS, `~/.config/session-insight/index.json` on Linux.
 
 ## Honest numbers
 
@@ -69,8 +69,8 @@ Every value carries an evidence label — `exact`, `derived`, `estimated`, `infe
 ## Configuration
 
 ```bash
-SESSION_EXPLORER_ADDR=127.0.0.1:5799 pnpm explorer     # listen elsewhere (loopback only)
-SESSION_EXPLORER_DATA="$PWD/.session-explorer/index.json" pnpm explorer   # index location
+SESSION_INSIGHT_ADDR=127.0.0.1:5799 pnpm insight     # listen elsewhere (loopback only)
+SESSION_INSIGHT_DATA="$PWD/.session-insight/index.json" pnpm insight   # index location
 ```
 
 ## Development
@@ -84,12 +84,12 @@ make test-e2e    # Playwright, against a real server
 
 | Path | |
 |---|---|
-| `apps/session-explorer/` | React 19 + Vite frontend |
+| `apps/session-insight/` | React 19 + Vite frontend |
 | `server/internal/sessioninsight/` | Session log parser — pure standard library |
-| `server/internal/sessionexplorer/` | HTTP handlers and the JSON index store |
-| `server/cmd/session-explorer/` | Entry point |
+| `server/internal/sessionstore/` | HTTP handlers and the JSON index store |
+| `server/cmd/session-insight/` | Entry point |
 
-`docs/session-explorer.md` (Chinese) is the detailed behavior spec. `AGENTS.md` holds the rules for AI agents working in this repository.
+`docs/session-insight.md` (Chinese) is the detailed behavior spec. `AGENTS.md` holds the rules for AI agents working in this repository.
 
 ## Status
 

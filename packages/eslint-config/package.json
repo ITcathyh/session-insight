@@ -1,5 +1,5 @@
 {
-  "name": "@session-explorer/eslint-config",
+  "name": "@session-insight/eslint-config",
   "version": "0.0.0",
   "private": true,
   "type": "module",

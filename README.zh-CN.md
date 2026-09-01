@@ -1,14 +1,14 @@
-# Session Explorer
+# Session Insight
 
 **[English](README.md) | 简体中文**
 
 只在本机运行的 **Codex**、**Claude Code**、**TraeX** 会话分析器。
 
-编码 agent 每跑一次就留下一份 JSONL 记录。Session Explorer 读这些文件，回答那些直接翻记录很难回答的问题：token 花在哪了、哪个工具一直在失败、四个小时的 run 里有多少其实是空等、跑通的那次和没跑通的那次到底差在哪。
+编码 agent 每跑一次就留下一份 JSONL 记录。Session Insight 读这些文件，回答那些直接翻记录很难回答的问题：token 花在哪了、哪个工具一直在失败、四个小时的 run 里有多少其实是空等、跑通的那次和没跑通的那次到底差在哪。
 
 它完全跑在你自己的机器上——一个绑定回环地址的 Go 二进制，加一份本地 JSON 索引。不需要账号，不需要数据库，不发任何网络请求。
 
-<img src="docs/assets/library.png" alt="Session Explorer 会话库" width="100%">
+<img src="docs/assets/library.png" alt="Session Insight 会话库" width="100%">
 
 ## 快速开始
 
@@ -16,7 +16,7 @@
 
 ```bash
 pnpm install
-pnpm explorer
+pnpm insight
 ```
 
 打开 <http://127.0.0.1:4788>。点「扫描本机」索引机器上已有的 session，或者直接上传 JSONL 文件和目录。
@@ -58,7 +58,7 @@ provider 按文件内容识别而不是按位置，所以上传的文件同样�
 - **上传是临时的。** 上传文件只在解析期间留在受保护的临时目录，解析完即删除。
 - **Go 侧零第三方依赖。** server 只用标准库，CI 会在出现依赖时直接让构建失败。
 
-数据默认落在操作系统的用户配置目录：macOS 是 `~/Library/Application Support/session-explorer/index.json`，Linux 是 `~/.config/session-explorer/index.json`。
+数据默认落在操作系统的用户配置目录：macOS 是 `~/Library/Application Support/session-insight/index.json`，Linux 是 `~/.config/session-insight/index.json`。
 
 ## 数字的可信度
 
@@ -67,8 +67,8 @@ provider 按文件内容识别而不是按位置，所以上传的文件同样�
 ## 配置
 
 ```bash
-SESSION_EXPLORER_ADDR=127.0.0.1:5799 pnpm explorer     # 换监听地址（仅限回环）
-SESSION_EXPLORER_DATA="$PWD/.session-explorer/index.json" pnpm explorer   # 换索引位置
+SESSION_INSIGHT_ADDR=127.0.0.1:5799 pnpm insight     # 换监听地址（仅限回环）
+SESSION_INSIGHT_DATA="$PWD/.session-insight/index.json" pnpm insight   # 换索引位置
 ```
 
 ## 开发
@@ -82,12 +82,12 @@ make test-e2e    # Playwright，会真启一个 server
 
 | 路径 | |
 |---|---|
-| `apps/session-explorer/` | React 19 + Vite 前端 |
+| `apps/session-insight/` | React 19 + Vite 前端 |
 | `server/internal/sessioninsight/` | 会话日志解析器——纯标准库 |
-| `server/internal/sessionexplorer/` | HTTP handler 与 JSON 索引存储 |
-| `server/cmd/session-explorer/` | 入口 |
+| `server/internal/sessionstore/` | HTTP handler 与 JSON 索引存储 |
+| `server/cmd/session-insight/` | 入口 |
 
-`docs/session-explorer.md` 是详细行为说明。`AGENTS.md` 是 AI agent 在本仓库工作的规则。
+`docs/session-insight.md` 是详细行为说明。`AGENTS.md` 是 AI agent 在本仓库工作的规则。
 
 ## 状态
 

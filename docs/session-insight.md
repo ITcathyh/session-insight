@@ -1,6 +1,6 @@
-# Session Explorer
+# Session Insight
 
-Session Explorer 是一个只在本机运行的 Codex / Claude Code / TraeX session 分析器。它提供一个本地 server 和浏览器前端：可以导入 JSONL 文件或目录、扫描本机已有 session、按条件搜索，并查看 token 脉冲、Trace / 瀑布图、工具、Skill、验证、子 agent、空闲间隔和可能纠偏等指标。
+Session Insight 是一个只在本机运行的 Codex / Claude Code / TraeX session 分析器。它提供一个本地 server 和浏览器前端：可以导入 JSONL 文件或目录、扫描本机已有 session、按条件搜索，并查看 token 脉冲、Trace / 瀑布图、工具、Skill、验证、子 agent、空闲间隔和可能纠偏等指标。
 
 页面由五个工作区组成：
 
@@ -15,21 +15,21 @@ Session Explorer 是一个只在本机运行的 Codex / Claude Code / TraeX sess
 在仓库根目录执行：
 
 ```bash
-pnpm explorer
+pnpm insight
 ```
 
-命令会先构建 `@session-explorer/app`，再启动 Go server。打开 <http://127.0.0.1:4788> 即可使用。需要本机已安装 Node.js、pnpm 和 Go。
+命令会先构建 `@session-insight/app`，再启动 Go server。打开 <http://127.0.0.1:4788> 即可使用。需要本机已安装 Node.js、pnpm 和 Go。
 
 这个入口是独立工具，不读取仓库的 `.env`，不要求登录、workspace 或 PostgreSQL。
 
 如需换端口或数据位置，可以覆盖环境变量：
 
 ```bash
-SESSION_EXPLORER_ADDR=127.0.0.1:5799 pnpm explorer
-SESSION_EXPLORER_DATA="$PWD/.session-explorer/index.json" pnpm explorer
+SESSION_INSIGHT_ADDR=127.0.0.1:5799 pnpm insight
+SESSION_INSIGHT_DATA="$PWD/.session-insight/index.json" pnpm insight
 ```
 
-`SESSION_EXPLORER_ADDR` 是监听地址，格式为 `host:port`。`SESSION_EXPLORER_DATA` 是本地分析索引文件路径；父目录会自动创建。未设置时，server 使用操作系统的用户配置目录下的 `session-explorer/index.json`：macOS 通常是 `~/Library/Application Support/session-explorer/index.json`，Linux 通常是 `~/.config/session-explorer/index.json`。
+`SESSION_INSIGHT_ADDR` 是监听地址，格式为 `host:port`。`SESSION_INSIGHT_DATA` 是本地分析索引文件路径；父目录会自动创建。未设置时，server 使用操作系统的用户配置目录下的 `session-insight/index.json`：macOS 通常是 `~/Library/Application Support/session-insight/index.json`，Linux 通常是 `~/.config/session-insight/index.json`。
 
 ## 导入和分析
 
@@ -67,7 +67,7 @@ Trace 的事件列表默认不显示纯遥测事件——`Token pulse` 和没有
 - `index.json` 只保存可搜索的 run 摘要，外加每条一行的会话标题；对话正文不写入索引。每个 run 的事件 Trace 独立写入 `runs/<run-id>/trace.json`，避免 Session Library 读取所有事件。
 - Trace 保存原始 session ID、token/context 脉冲，以及输入、输出、错误摘录。user 轮次与 agent 回复上限 8 KB（便于回读对话），工具输入 / 输出 / 错误上限 640 字节。不会保存原始文件路径或完整 JSONL。
 - 提高对话摘录上限后，`runs/` 目录会明显变大（本机 650 余条 session 约从 53 MB 增至百 MB 量级）。已有 trace 保持导入时的长度，重新扫描后才会带上更长的对话。
-- 数据默认只写入本机用户配置目录；使用 `SESSION_EXPLORER_DATA` 可以把索引放到指定位置。
+- 数据默认只写入本机用户配置目录；使用 `SESSION_INSIGHT_DATA` 可以把索引放到指定位置。
 - server 只接受回环监听地址（例如 `127.0.0.1:4788` 或 `[::1]:4788`）；非回环地址会被拒绝启动。
 
 ## 本地 API
@@ -79,4 +79,4 @@ Trace 的事件列表默认不显示纯遥测事件——`Token pulse` 和没有
 
 ## 清除数据
 
-页面中的清除操作只删除 Session Explorer 的本地分析索引，不删除 Codex、Claude Code 或 TraeX 的原始 session 文件。要彻底移除索引，可停止 server 后删除 `SESSION_EXPLORER_DATA` 指向的文件；未设置环境变量时删除上述默认配置目录中的 `session-explorer/index.json`。
+页面中的清除操作只删除 Session Insight 的本地分析索引，不删除 Codex、Claude Code 或 TraeX 的原始 session 文件。要彻底移除索引，可停止 server 后删除 `SESSION_INSIGHT_DATA` 指向的文件；未设置环境变量时删除上述默认配置目录中的 `session-insight/index.json`。

@@ -1,4 +1,4 @@
-.PHONY: help explorer build test test-go test-ts test-e2e typecheck lint check clean
+.PHONY: help insight build test test-go test-ts test-e2e typecheck lint check clean
 .DEFAULT_GOAL := help
 
 # The Go module has zero third-party dependencies, so `go` needs no network
@@ -9,8 +9,8 @@ GO := GOTOOLCHAIN=auto go
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
 
-explorer: ## Build the frontend and start Session Explorer on 127.0.0.1:4788
-	pnpm explorer
+insight: ## Build the frontend and start Session Insight on 127.0.0.1:4788
+	pnpm insight
 
 build: ## Build the frontend bundle and the Go binary
 	pnpm build

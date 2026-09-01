@@ -1,4 +1,4 @@
-package sessionexplorer
+package sessionstore
 
 import (
 	"bytes"
@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"session-explorer/server/internal/sessioninsight"
+	"github.com/ITcathyh/session-insight/server/internal/sessioninsight"
 )
 
 func int64ptr(value int64) *int64 { return &value }
@@ -49,7 +49,7 @@ func TestPublicRunPreservesContextQuality(t *testing.T) {
 }
 
 func TestContextQualitySurvivesImportListAndDetail(t *testing.T) {
-	e, _ := newTestExplorer(t)
+	e, _ := newTestStore(t)
 	response := httptest.NewRecorder()
 	e.Handler().ServeHTTP(response, importRequest(t, fixture(t, "codex", "sessions", "2026", "08", "30", "modern.jsonl")))
 	if response.Code != http.StatusOK {
@@ -90,7 +90,7 @@ func fixture(t *testing.T, parts ...string) []byte {
 	return b
 }
 
-func newTestExplorer(t *testing.T) (*Explorer, string) {
+func newTestStore(t *testing.T) (*Store, string) {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "index.json")
 	e, err := New(Config{DataFile: path, Now: func() time.Time { return time.Date(2026, 8, 31, 0, 0, 0, 0, time.UTC) }})
@@ -142,7 +142,7 @@ func importFilesRequest(t *testing.T, files ...importFile) *http.Request {
 }
 
 func TestClaudeDirectoryImportPreservesKindsAndUpsertsByRunIdentity(t *testing.T) {
-	e, _ := newTestExplorer(t)
+	e, _ := newTestStore(t)
 	files := []importFile{
 		{name: "main.jsonl", relativePath: "main.jsonl", body: fixture(t, "claude", "projects", "demo", "main.jsonl")},
 		{name: "worker.jsonl", relativePath: "subagents/worker.jsonl", body: fixture(t, "claude", "projects", "demo", "subagents", "worker.jsonl")},
@@ -198,7 +198,7 @@ func TestClaudeDirectoryImportPreservesKindsAndUpsertsByRunIdentity(t *testing.T
 }
 
 func TestTraeXImportNormalizesProviderAndUsesTraeStagingRoot(t *testing.T) {
-	e, _ := newTestExplorer(t)
+	e, _ := newTestStore(t)
 	for _, modelProvider := range []string{"trae", "traex"} {
 		content := []byte(fmt.Sprintf("%s\n%s\n%s\n",
 			fmt.Sprintf(`{"timestamp":"2026-08-30T10:00:00Z","type":"session_meta","payload":{"id":"%s-session","cwd":"/tmp/project","model_provider":%q}}`, modelProvider, modelProvider),
@@ -238,7 +238,7 @@ func TestDetectProviderParsesTraeXSessionMetadata(t *testing.T) {
 }
 
 func TestImportRejectsUnsafeRelativePaths(t *testing.T) {
-	e, _ := newTestExplorer(t)
+	e, _ := newTestStore(t)
 	content := fixture(t, "codex", "sessions", "2026", "08", "30", "modern.jsonl")
 	for _, path := range []string{"../../escape.jsonl", "/absolute.jsonl"} {
 		response := httptest.NewRecorder()
@@ -259,7 +259,7 @@ func decode(t *testing.T, response *httptest.ResponseRecorder) map[string]any {
 }
 
 func TestImportSearchPrivacyAndPersistence(t *testing.T) {
-	e, index := newTestExplorer(t)
+	e, index := newTestStore(t)
 	request := importRequest(t,
 		fixture(t, "codex", "sessions", "2026", "08", "30", "modern.jsonl"),
 		fixture(t, "claude", "projects", "demo", "main.jsonl"),
@@ -325,7 +325,7 @@ func TestImportSearchPrivacyAndPersistence(t *testing.T) {
 }
 
 func TestImportRejectsBadInput(t *testing.T) {
-	e, _ := newTestExplorer(t)
+	e, _ := newTestStore(t)
 	bad := importRequest(t, []byte("{not json}\n"))
 	response := httptest.NewRecorder()
 	e.Handler().ServeHTTP(response, bad)
@@ -335,7 +335,7 @@ func TestImportRejectsBadInput(t *testing.T) {
 }
 
 func TestImportEnforcesFileLimit(t *testing.T) {
-	e, _ := newTestExplorer(t)
+	e, _ := newTestStore(t)
 	content := fixture(t, "codex", "sessions", "2026", "08", "30", "modern.jsonl")
 	files := make([][]byte, maxImportFiles+1)
 	for i := range files {
@@ -349,7 +349,7 @@ func TestImportEnforcesFileLimit(t *testing.T) {
 }
 
 func TestPaginationDeleteAndHeaders(t *testing.T) {
-	e, _ := newTestExplorer(t)
+	e, _ := newTestStore(t)
 	fixtureData := fixture(t, "codex", "sessions", "2026", "08", "30", "modern.jsonl")
 	response := httptest.NewRecorder()
 	e.Handler().ServeHTTP(response, importRequest(t, fixtureData))
@@ -380,7 +380,7 @@ func TestPaginationDeleteAndHeaders(t *testing.T) {
 }
 
 func TestListFiltersBeforePagination(t *testing.T) {
-	e, _ := newTestExplorer(t)
+	e, _ := newTestStore(t)
 	started := time.Date(2026, 8, 30, 9, 0, 0, 0, time.UTC)
 	for i := 0; i < 51; i++ {
 		id := fmt.Sprintf("run-%d", i)
@@ -411,7 +411,7 @@ func TestLargeCodexImport(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	e, index := newTestExplorer(t)
+	e, index := newTestStore(t)
 	started := time.Now()
 	response := httptest.NewRecorder()
 	e.Handler().ServeHTTP(response, importFilesRequest(t, importFile{name: "reference.jsonl", body: body}))
@@ -454,7 +454,7 @@ func TestLargeCodexImport(t *testing.T) {
 
 func TestStaticFallback(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "index.html"), []byte("<main>Explorer</main>"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "index.html"), []byte("<main>Session Insight</main>"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	e, err := New(Config{DataFile: filepath.Join(t.TempDir(), "index.json"), WebDir: dir})
@@ -464,7 +464,7 @@ func TestStaticFallback(t *testing.T) {
 	response := httptest.NewRecorder()
 	e.Handler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/runs/anything", nil))
 	b, _ := io.ReadAll(response.Body)
-	if response.Code != 200 || !strings.Contains(string(b), "Explorer") {
+	if response.Code != 200 || !strings.Contains(string(b), "Session Insight") {
 		t.Fatalf("fallback: %d %q", response.Code, b)
 	}
 }

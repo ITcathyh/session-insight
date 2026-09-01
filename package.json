@@ -1,16 +1,16 @@
 {
-  "name": "session-explorer",
+  "name": "session-insight",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "explorer": "bash scripts/start-session-explorer.sh",
-    "dev": "turbo dev --filter=@session-explorer/app",
+    "insight": "bash scripts/start-session-insight.sh",
+    "dev": "turbo dev --filter=@session-insight/app",
     "build": "turbo build",
     "typecheck": "turbo typecheck",
     "test": "turbo test",
     "lint": "turbo lint",
-    "test:e2e": "pnpm --filter @session-explorer/app test:e2e",
+    "test:e2e": "pnpm --filter @session-insight/app test:e2e",
     "clean": "turbo clean && rm -rf node_modules"
   },
   "packageManager": "pnpm@10.28.2",

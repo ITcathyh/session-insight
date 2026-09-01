@@ -100,7 +100,7 @@ beforeEach(() => {
 
 afterEach(() => cleanup());
 
-describe("Session Explorer", () => {
+describe("Session Insight", () => {
   it("does not double count reasoning output in a tracked-token fallback", () => {
     expect(
       trackedTokenTotal({

@@ -1,4 +1,4 @@
-package sessionexplorer
+package sessionstore
 
 import (
 	"encoding/json"
@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"session-explorer/server/internal/sessioninsight"
+	"github.com/ITcathyh/session-insight/server/internal/sessioninsight"
 )
 
 func TestTitleFromPromptShapes(t *testing.T) {
@@ -83,7 +83,7 @@ func TestDeriveDigestHandlesTraceWithoutUserTurn(t *testing.T) {
 // Content search is what makes a 655-run library navigable: users recall what
 // they asked, not the run uuid.
 func TestSearchMatchesConversationContent(t *testing.T) {
-	e, _ := newTestExplorer(t)
+	e, _ := newTestStore(t)
 	response := httptest.NewRecorder()
 	e.Handler().ServeHTTP(response, importRequest(t, fixture(t, "codex", "sessions", "2026", "08", "30", "modern.jsonl")))
 	if response.Code != 200 {
@@ -122,7 +122,7 @@ func TestSearchMatchesConversationContent(t *testing.T) {
 // Titles must survive a restart for an index written before the field existed,
 // without re-reading any original session file.
 func TestBackfillDerivesTitlesForLegacyIndex(t *testing.T) {
-	e, path := newTestExplorer(t)
+	e, path := newTestStore(t)
 	response := httptest.NewRecorder()
 	e.Handler().ServeHTTP(response, importRequest(t, fixture(t, "codex", "sessions", "2026", "08", "30", "modern.jsonl")))
 	if response.Code != 200 {
@@ -178,7 +178,7 @@ func TestBackfillDerivesTitlesForLegacyIndex(t *testing.T) {
 }
 
 func TestStatsAggregatesEveryMatchingRunNotJustAPage(t *testing.T) {
-	e, _ := newTestExplorer(t)
+	e, _ := newTestStore(t)
 	response := httptest.NewRecorder()
 	e.Handler().ServeHTTP(response, importRequest(t,
 		fixture(t, "codex", "sessions", "2026", "08", "30", "modern.jsonl"),
@@ -214,7 +214,7 @@ func TestStatsAggregatesEveryMatchingRunNotJustAPage(t *testing.T) {
 }
 
 func TestStatsHonoursFilters(t *testing.T) {
-	e, _ := newTestExplorer(t)
+	e, _ := newTestStore(t)
 	response := httptest.NewRecorder()
 	e.Handler().ServeHTTP(response, importRequest(t,
 		fixture(t, "codex", "sessions", "2026", "08", "30", "modern.jsonl"),

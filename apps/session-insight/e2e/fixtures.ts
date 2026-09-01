@@ -116,7 +116,7 @@ export function buildCodexSession(sessionId = CODEX_SESSION_ID): string {
     payload: {
       id: sessionId,
       type: "session_meta",
-      cwd: "/workspace/session-explorer",
+      cwd: "/workspace/session-insight",
       model: CODEX_MODEL,
     },
   });

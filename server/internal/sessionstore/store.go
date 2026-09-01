@@ -1,5 +1,5 @@
-// Package sessionexplorer provides a small, local-only session analysis API.
-package sessionexplorer
+// Package sessionstore provides a small, local-only session analysis API.
+package sessionstore
 
 import (
 	"crypto/hmac"
@@ -20,7 +20,7 @@ import (
 	"sync"
 	"time"
 
-	"session-explorer/server/internal/sessioninsight"
+	"github.com/ITcathyh/session-insight/server/internal/sessioninsight"
 )
 
 const (
@@ -29,15 +29,15 @@ const (
 	maxImportLineBytes       = 4 << 20
 )
 
-// Config configures an Explorer. DataFile is an atomic JSON index, never a raw session store.
+// Config configures a Store. DataFile is an atomic JSON index, never a raw session store.
 type Config struct {
 	DataFile string
 	WebDir   string
 	Now      func() time.Time
 }
 
-// Explorer owns a local JSON index and an HTTP handler. It is safe for concurrent requests.
-type Explorer struct {
+// Store owns a local JSON index and an HTTP handler. It is safe for concurrent requests.
+type Store struct {
 	mu       sync.Mutex
 	data     diskData
 	path     string
@@ -227,25 +227,25 @@ func safeAggregate(a sessioninsight.Aggregate) SafeAggregate {
 	return SafeAggregate{a.Provider, a.Model, a.Project, a.SourceSessionID, a.RunKind, a.StartedAt, a.EndedAt, a.ActiveDurationMS, a.IdleDurationMS, a.InputUncached, a.CacheRead, a.CacheWrite, a.Output, a.ReasoningOutput, a.TokenObserved, a.PeakContextTokens, a.ContextWindowTokens, a.UserTurnCount, a.FollowUpCount, a.CorrectionCandidateCount, a.ToolCallCount, a.ToolFailureCount, a.VerificationCount, a.SubagentCount, a.CompactionCount, a.ToolCounts, a.SkillActivity, a.CorrectionSignals, a.PhaseCounts, a.PhaseSequence, a.Trace, a.Quality, a.ParseWarnings, a.ParserVersion}
 }
 
-func New(config Config) (*Explorer, error) {
+func New(config Config) (*Store, error) {
 	if config.DataFile == "" {
 		base, err := os.UserConfigDir()
 		if err != nil {
 			return nil, fmt.Errorf("user config directory: %w", err)
 		}
-		config.DataFile = filepath.Join(base, "session-explorer", "index.json")
+		config.DataFile = filepath.Join(base, "session-insight", "index.json")
 	}
 	if config.Now == nil {
 		config.Now = time.Now
 	}
-	e := &Explorer{path: config.DataFile, traceDir: filepath.Join(filepath.Dir(config.DataFile), "runs"), webDir: config.WebDir, now: config.Now}
+	e := &Store{path: config.DataFile, traceDir: filepath.Join(filepath.Dir(config.DataFile), "runs"), webDir: config.WebDir, now: config.Now}
 	if err := e.load(); err != nil {
 		return nil, err
 	}
 	return e, nil
 }
 
-func (e *Explorer) load() error {
+func (e *Store) load() error {
 	b, err := os.ReadFile(e.path)
 	if errors.Is(err, os.ErrNotExist) {
 		secret, err := randomHex(32)
@@ -278,7 +278,7 @@ func (e *Explorer) load() error {
 }
 
 // setSearchTextLocked records a run's conversation haystack in memory only.
-func (e *Explorer) setSearchTextLocked(id, text string) {
+func (e *Store) setSearchTextLocked(id, text string) {
 	if e.search == nil {
 		e.search = map[string]string{}
 	}
@@ -292,7 +292,7 @@ func (e *Explorer) setSearchTextLocked(id, text string) {
 // ensureSearchLocked builds the content-search cache on first use. Reading every
 // trace costs a beat, so it is deferred until a query actually needs it rather
 // than paid on every start.
-func (e *Explorer) ensureSearchLocked() {
+func (e *Store) ensureSearchLocked() {
 	if e.searchReady {
 		return
 	}
@@ -314,11 +314,11 @@ func (e *Explorer) ensureSearchLocked() {
 	e.searchReady = true
 }
 
-func (e *Explorer) searchTextLocked(id string) string { return e.search[strings.ToLower(id)] }
+func (e *Store) searchTextLocked(id string) string { return e.search[strings.ToLower(id)] }
 
 // Snippets returns, for each run, the matched phrase in context. Empty when the
 // query is absent or matched only structured fields such as provider or model.
-func (e *Explorer) Snippets(ids []string, query string) map[string]string {
+func (e *Store) Snippets(ids []string, query string) map[string]string {
 	if query == "" {
 		return nil
 	}
@@ -337,7 +337,7 @@ func (e *Explorer) Snippets(ids []string, query string) map[string]string {
 // those fields existed. Traces are already on disk, so no source session file is
 // re-read. Runs whose trace is missing or has no user turn stay blank; the UI
 // falls back to project plus short id for those.
-func (e *Explorer) backfillDigestsLocked() error {
+func (e *Store) backfillDigestsLocked() error {
 	if e.data.DigestVersion >= digestVersion {
 		return nil
 	}
@@ -357,7 +357,7 @@ func (e *Explorer) backfillDigestsLocked() error {
 	return e.persistLocked()
 }
 
-func (e *Explorer) persistLocked() error {
+func (e *Store) persistLocked() error {
 	if err := os.MkdirAll(filepath.Dir(e.path), 0700); err != nil {
 		return err
 	}
@@ -396,11 +396,11 @@ func (e *Explorer) persistLocked() error {
 	return os.Chmod(e.path, 0600)
 }
 
-func (e *Explorer) tracePath(id string) string {
+func (e *Store) tracePath(id string) string {
 	return filepath.Join(e.traceDir, id, "trace.json")
 }
 
-func (e *Explorer) writeTraceLocked(id string, trace []sessioninsight.TraceEvent) error {
+func (e *Store) writeTraceLocked(id string, trace []sessioninsight.TraceEvent) error {
 	dir := filepath.Dir(e.tracePath(id))
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return err
@@ -429,7 +429,7 @@ func (e *Explorer) writeTraceLocked(id string, trace []sessioninsight.TraceEvent
 	return os.Rename(tmpName, e.tracePath(id))
 }
 
-func (e *Explorer) readTraceLocked(id string) ([]sessioninsight.TraceEvent, error) {
+func (e *Store) readTraceLocked(id string) ([]sessioninsight.TraceEvent, error) {
 	b, err := os.ReadFile(e.tracePath(id))
 	if errors.Is(err, os.ErrNotExist) {
 		return []sessioninsight.TraceEvent{}, nil
@@ -452,16 +452,16 @@ func randomHex(n int) (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-func (e *Explorer) lookup(namespace, value string) string {
+func (e *Store) lookup(namespace, value string) string {
 	m := hmac.New(sha256.New, []byte(e.data.Secret))
 	_, _ = io.WriteString(m, namespace+"\x00"+value)
 	return hex.EncodeToString(m.Sum(nil))
 }
 
-func (e *Explorer) sourceLookup(sourceRunKey string) string { return e.lookup("run", sourceRunKey) }
-func (e *Explorer) sessionLookup(sessionID string) string   { return e.lookup("session", sessionID) }
+func (e *Store) sourceLookup(sourceRunKey string) string { return e.lookup("run", sourceRunKey) }
+func (e *Store) sessionLookup(sessionID string) string   { return e.lookup("session", sessionID) }
 
-func (e *Explorer) upsert(aggregates []sessioninsight.Aggregate, origin string) (upsertResult, error) {
+func (e *Store) upsert(aggregates []sessioninsight.Aggregate, origin string) (upsertResult, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	result := upsertResult{Runs: make([]Run, 0, len(aggregates))}
@@ -522,7 +522,7 @@ func (e *Explorer) upsert(aggregates []sessioninsight.Aggregate, origin string) 
 	return result, nil
 }
 
-func (e *Explorer) linkStoredSubagentsLocked() {
+func (e *Store) linkStoredSubagentsLocked() {
 	counts := map[string]int{}
 	for _, run := range e.data.Runs {
 		if run.Aggregate.Provider == "claude" && run.Aggregate.RunKind == "subagent" {
@@ -537,7 +537,7 @@ func (e *Explorer) linkStoredSubagentsLocked() {
 	}
 }
 
-func (e *Explorer) list(filters runFilters) ([]Run, string, int) {
+func (e *Store) list(filters runFilters) ([]Run, string, int) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if filters.q != "" {
@@ -693,9 +693,9 @@ func hasTool(values map[string]sessioninsight.ToolStats, name string) bool {
 	return false
 }
 
-// Handler returns the Explorer HTTP handler. The listener is loopback-bound by main.
-func (e *Explorer) Handler() http.Handler { return securityHeaders(http.HandlerFunc(e.serveHTTP)) }
-func (e *Explorer) serveHTTP(w http.ResponseWriter, r *http.Request) {
+// Handler returns the Store HTTP handler. The listener is loopback-bound by main.
+func (e *Store) Handler() http.Handler { return securityHeaders(http.HandlerFunc(e.serveHTTP)) }
+func (e *Store) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(r.URL.Path, "/api/") {
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/api/health":
@@ -729,7 +729,7 @@ func securityHeaders(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
-func (e *Explorer) serveStatic(w http.ResponseWriter, r *http.Request) {
+func (e *Store) serveStatic(w http.ResponseWriter, r *http.Request) {
 	if e.webDir == "" {
 		http.NotFound(w, r)
 		return

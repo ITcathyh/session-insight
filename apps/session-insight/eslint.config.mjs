@@ -1,4 +1,4 @@
-import reactConfig from "@session-explorer/eslint-config/react";
+import reactConfig from "@session-insight/eslint-config/react";
 
 export default [
   ...reactConfig,

@@ -1,4 +1,4 @@
-package sessionexplorer
+package sessionstore
 
 import (
 	"net/http"
@@ -61,7 +61,7 @@ const (
 	maxDays     = 90
 )
 
-func (e *Explorer) stats(filters runFilters) Stats {
+func (e *Store) stats(filters runFilters) Stats {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -239,7 +239,7 @@ func sortedCounts(values map[string]int) []NameCount {
 	return out
 }
 
-func (e *Explorer) statsHandler(w http.ResponseWriter, r *http.Request) {
+func (e *Store) statsHandler(w http.ResponseWriter, r *http.Request) {
 	filters, ok := parseRunFilters(w, r)
 	if !ok {
 		return

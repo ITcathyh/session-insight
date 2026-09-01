@@ -2,21 +2,21 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ADDR="${SESSION_EXPLORER_ADDR:-127.0.0.1:4788}"
+ADDR="${SESSION_INSIGHT_ADDR:-127.0.0.1:4788}"
 
-echo "==> Building session explorer frontend..."
-pnpm --filter @session-explorer/app build
+echo "==> Building session insight frontend..."
+pnpm --filter @session-insight/app build
 
 SERVER_ARGS=(
-  --web ../apps/session-explorer/dist
+  --web ../apps/session-insight/dist
   --addr "$ADDR"
 )
-if [ -n "${SESSION_EXPLORER_DATA:-}" ]; then
-  SERVER_ARGS+=(--data "$SESSION_EXPLORER_DATA")
+if [ -n "${SESSION_INSIGHT_DATA:-}" ]; then
+  SERVER_ARGS+=(--data "$SESSION_INSIGHT_DATA")
 fi
 
 cd "$ROOT/server"
-echo "==> Starting session explorer at http://$ADDR"
+echo "==> Starting session insight at http://$ADDR"
 echo "    Press Ctrl-C to stop."
 
 server_pid=""
@@ -41,7 +41,7 @@ trap 'forward_signal INT' INT
 trap 'forward_signal TERM' TERM
 trap cleanup EXIT
 
-GOTOOLCHAIN=auto go run ./cmd/session-explorer "${SERVER_ARGS[@]}" &
+GOTOOLCHAIN=auto go run ./cmd/session-insight "${SERVER_ARGS[@]}" &
 server_pid="$!"
 
 set +e

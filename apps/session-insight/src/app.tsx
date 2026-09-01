@@ -600,8 +600,8 @@ function Header({ refresh }: { refresh: () => void }) {
   const importMenu = useRef<HTMLDetailsElement>(null);
   const [dark, setDark] = useState(
     () =>
-      window.localStorage.getItem("session-explorer-theme") === "dark" ||
-      (!window.localStorage.getItem("session-explorer-theme") &&
+      window.localStorage.getItem("session-insight-theme") === "dark" ||
+      (!window.localStorage.getItem("session-insight-theme") &&
         document.documentElement.dataset.theme === "dark"),
   );
 
@@ -609,7 +609,7 @@ function Header({ refresh }: { refresh: () => void }) {
     const theme = dark ? "dark" : "light";
     document.documentElement.dataset.theme = theme;
     document.documentElement.style.colorScheme = theme;
-    window.localStorage.setItem("session-explorer-theme", theme);
+    window.localStorage.setItem("session-insight-theme", theme);
   }, [dark]);
   useEffect(() => {
     if (importMenu.current) importMenu.current.open = false;
@@ -623,12 +623,12 @@ function Header({ refresh }: { refresh: () => void }) {
         跳到主要内容
       </a>
       <header className="topbar">
-        <Link to="/" className="brand" aria-label="Session Explorer 会话库">
+        <Link to="/" className="brand" aria-label="Session Insight 会话库">
           <span className="brand-mark" aria-hidden="true">
             S
           </span>
           <span>
-            Session Explorer<small>本地证据工作台</small>
+            Session Insight<small>本地证据工作台</small>
           </span>
         </Link>
         <nav aria-label="主要导航">
@@ -2214,7 +2214,7 @@ function PolishedTrace() {
     )
       return requested;
     const stored = window.localStorage.getItem(
-      `session-explorer-density:${id}`,
+      `session-insight-density:${id}`,
     );
     return stored === "summary" || stored === "standard" || stored === "full"
       ? stored
@@ -2232,11 +2232,11 @@ function PolishedTrace() {
   >("timeline");
   const [treeWidth, setTreeWidth] = useState(
     () =>
-      Number(window.localStorage.getItem("session-explorer-tree-width")) || 248,
+      Number(window.localStorage.getItem("session-insight-tree-width")) || 248,
   );
   const [inspectorWidth, setInspectorWidth] = useState(
     () =>
-      Number(window.localStorage.getItem("session-explorer-inspector-width")) ||
+      Number(window.localStorage.getItem("session-insight-inspector-width")) ||
       332,
   );
   const rawSpans = useMemo(() => (run ? normalSpans(run) : []), [run]);
@@ -2323,15 +2323,15 @@ function PolishedTrace() {
   }, [id, reload]);
 
   useEffect(() => {
-    window.localStorage.setItem(`session-explorer-density:${id}`, density);
+    window.localStorage.setItem(`session-insight-density:${id}`, density);
   }, [density, id]);
   useEffect(() => {
     window.localStorage.setItem(
-      "session-explorer-tree-width",
+      "session-insight-tree-width",
       String(treeWidth),
     );
     window.localStorage.setItem(
-      "session-explorer-inspector-width",
+      "session-insight-inspector-width",
       String(inspectorWidth),
     );
   }, [inspectorWidth, treeWidth]);

@@ -1,4 +1,4 @@
-{"timestamp":"2026-08-29T09:00:00.000Z","type":"session_meta","payload":{"id":"e2e-codex-flagship","type":"session_meta","cwd":"/workspace/session-explorer","model":"codex-e2e-large"}}
+{"timestamp":"2026-08-29T09:00:00.000Z","type":"session_meta","payload":{"id":"e2e-codex-flagship","type":"session_meta","cwd":"/workspace/session-insight","model":"codex-e2e-large"}}
 {"timestamp":"2026-08-29T09:00:02.000Z","type":"event_msg","payload":{"type":"user_message","message":"梳理 token 归因链路"}}
 {"timestamp":"2026-08-29T09:00:02.400Z","type":"response_item","payload":{"type":"reasoning"}}
 {"timestamp":"2026-08-29T09:00:02.800Z","type":"response_item","payload":{"type":"reasoning"}}

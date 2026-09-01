@@ -30,12 +30,12 @@ const paginationFixture = readFileSync(
   "utf8",
 );
 const sessionID = CODEX_SESSION_ID;
-const testDataDir = join(tmpdir(), "session-explorer-e2e");
+const testDataDir = join(tmpdir(), "session-insight-e2e");
 const index =
-  process.env.SESSION_EXPLORER_E2E_DATA ?? join(testDataDir, "index.json");
+  process.env.SESSION_INSIGHT_E2E_DATA ?? join(testDataDir, "index.json");
 
 test.afterAll(() => {
-  if (!process.env.SESSION_EXPLORER_E2E_DATA)
+  if (!process.env.SESSION_INSIGHT_E2E_DATA)
     rmSync(testDataDir, { recursive: true, force: true });
   else rmSync(index, { force: true });
 });

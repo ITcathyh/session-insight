@@ -20,8 +20,8 @@ playwright-report/
 # (project names, session ids, model names), so they stay off the repo.
 .artifacts/
 
-# local session-explorer index (when SESSION_EXPLORER_DATA points inside the repo)
-.session-explorer/
+# local session-insight index (when SESSION_INSIGHT_DATA points inside the repo)
+.session-insight/
 
 # local settings
 .claude/

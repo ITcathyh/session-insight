@@ -1,4 +1,4 @@
-package sessionexplorer
+package sessionstore
 
 import (
 	"context"
@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"session-explorer/server/internal/sessioninsight"
+	"github.com/ITcathyh/session-insight/server/internal/sessioninsight"
 )
 
 func writeJSON(w http.ResponseWriter, status int, value any) {
@@ -27,14 +27,14 @@ func apiError(w http.ResponseWriter, status int, message string) {
 	writeJSON(w, status, map[string]string{"error": message})
 }
 
-func (e *Explorer) importFiles(w http.ResponseWriter, r *http.Request) {
+func (e *Store) importFiles(w http.ResponseWriter, r *http.Request) {
 	mediaType, params, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || mediaType != "multipart/form-data" {
 		apiError(w, 400, "multipart files required")
 		return
 	}
 	mr := multipart.NewReader(http.MaxBytesReader(w, r.Body, maxImportBytes+int64(maxImportFiles)*1024), params["boundary"])
-	tmp, err := os.MkdirTemp("", "session-explorer-import-")
+	tmp, err := os.MkdirTemp("", "session-insight-import-")
 	if err != nil {
 		apiError(w, 500, "create import staging")
 		return
@@ -166,7 +166,7 @@ func safeRelativePath(raw string) (string, error) {
 	return cleaned, nil
 }
 
-func (e *Explorer) scanStaged(ctx context.Context, tmp string, files []stagedFile) (sessioninsight.ScanResult, error) {
+func (e *Store) scanStaged(ctx context.Context, tmp string, files []stagedFile) (sessioninsight.ScanResult, error) {
 	codexRoot := filepath.Join(tmp, "codex")
 	claudeRoot := filepath.Join(tmp, "claude")
 	traeRoot := filepath.Join(tmp, "traex")
@@ -201,7 +201,7 @@ func (e *Explorer) scanStaged(ctx context.Context, tmp string, files []stagedFil
 	return result, nil
 }
 
-func (e *Explorer) scan(w http.ResponseWriter, r *http.Request) {
+func (e *Store) scan(w http.ResponseWriter, r *http.Request) {
 	var request struct {
 		Days      int      `json:"days"`
 		Providers []string `json:"providers"`
@@ -233,7 +233,7 @@ func (e *Explorer) scan(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"runs": views, "count": len(views), "imported": stored.Imported, "updated": stored.Updated, "filesScanned": result.FilesScanned, "filesSkipped": result.FilesSkipped, "warnings": result.Warnings})
 }
 
-func (e *Explorer) listRuns(w http.ResponseWriter, r *http.Request) {
+func (e *Store) listRuns(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	limit := 50
 	if value := q.Get("limit"); value != "" {
@@ -273,7 +273,7 @@ func parseFilterDate(value string, endOfDay bool) (time.Time, error) {
 	}
 	return time.Parse(time.RFC3339, value)
 }
-func (e *Explorer) oneRun(w http.ResponseWriter, r *http.Request) {
+func (e *Store) oneRun(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimPrefix(r.URL.Path, "/api/session-insights/runs/")
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -319,7 +319,7 @@ func (e *Explorer) oneRun(w http.ResponseWriter, r *http.Request) {
 	http.NotFound(w, r)
 }
 
-func (e *Explorer) deleteAll(w http.ResponseWriter) {
+func (e *Store) deleteAll(w http.ResponseWriter) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.data.Runs = nil
@@ -333,7 +333,7 @@ func (e *Explorer) deleteAll(w http.ResponseWriter) {
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
-func (e *Explorer) summary(w http.ResponseWriter) {
+func (e *Store) summary(w http.ResponseWriter) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	counts := map[string]int{}

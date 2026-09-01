@@ -1,10 +1,10 @@
-package sessionexplorer
+package sessionstore
 
 import (
 	"strings"
 	"unicode/utf8"
 
-	"session-explorer/server/internal/sessioninsight"
+	"github.com/ITcathyh/session-insight/server/internal/sessioninsight"
 )
 
 const (
