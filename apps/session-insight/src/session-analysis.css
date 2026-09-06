@@ -51,7 +51,7 @@
 .analysis-token-preview dl > div { padding: 8px; border-radius: var(--radius-sm); background: var(--surface-subtle); }
 .analysis-token-preview dt { color: var(--muted); font-size: 11px; }
 .analysis-token-preview dd { margin: 2px 0 0; font-weight: 700; font-variant-numeric: tabular-nums; }
-.analysis-token-preview p, .analysis-cache-note, .analysis-pulse-note { color: var(--text-soft); font-size: 12px; line-height: 1.55; }
+.analysis-token-preview p, .analysis-pulse-note { color: var(--text-soft); font-size: 12px; line-height: 1.55; }
 
 .analysis-tools { margin-top: 18px; }
 .analysis-table-wrap { overflow-x: auto; margin-top: 12px; }
@@ -63,11 +63,18 @@
 
 .analysis-tokens-page { display: grid; gap: 18px; }
 .analysis-tokens-page .analysis-brief { margin: 0; }
+.token-efficiency { margin-top: 18px; }
+.analysis-tokens-page .token-efficiency { margin-top: 0; }
+.token-efficiency dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 16px 0 0; }
+.token-efficiency dl > div { min-width: 0; padding: 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-subtle); }
+.token-efficiency dt { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; color: var(--text-soft); font-size: 12px; }
+.token-efficiency dd { margin: 10px 0; color: var(--text); font-size: 23px; font-weight: 700; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.token-efficiency small { display: block; color: var(--muted); font-size: 11px; line-height: 1.6; }
+@media (max-width: 839px) { .token-efficiency dl { grid-template-columns: 1fr; } }
 .token-breakdown > dl { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 18px 0 12px; }
 .token-bucket { min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-subtle); }
 .token-bucket dd { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .token-bucket small { display: block; min-height: 30px; margin-top: 6px; color: var(--muted); font-size: 11px; line-height: 1.35; }
-.analysis-cache-note { margin: 0; }
 .analysis-pulse-note { margin: 12px 0 0; }
 .token-pulses ol { margin-top: 10px; }
 .token-pulses li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line); }

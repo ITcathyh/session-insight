@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SessionOverview, SessionTokens } from "./session-analysis";
 import type { SessionRun, TraceSpan } from "./types";
@@ -63,6 +63,111 @@ describe("SessionOverview", () => {
 });
 
 describe("SessionTokens", () => {
+  function metric(label: string) {
+    return within(screen.getByText(label, { selector: "dt" }).closest("div")!);
+  }
+
+  it("shows session output rates, cache reuse and output composition with explicit denominators", () => {
+    render(<SessionTokens run={{
+      id: "efficiency", durationMs: 20000, activeDurationMs: 10000,
+      counts: { userTurns: 4 },
+      tokens: { inputUncached: 100, cacheRead: 300, cacheWrite: 100, output: 200, reasoning: 50 },
+      quality: { token: "derived", inputTokens: "derived", outputTokens: "exact", reasoningTokens: "derived" },
+    }} spans={[]} openSpan={vi.fn()} />);
+
+    expect(metric("活跃期输出速率").getByText("20 tokens/s")).toBeInTheDocument();
+    expect(metric("活跃期输出速率").getByText("启发式")).toBeInTheDocument();
+    expect(metric("全程输出速率").getByText("10 tokens/s")).toBeInTheDocument();
+    expect(metric("缓存读取率").getByText("75%")).toBeInTheDocument();
+    expect(metric("缓存读取率").getByText(/不含 Cache write/)).toBeInTheDocument();
+    expect(metric("每轮平均输出").getByText("50 tokens/轮")).toBeInTheDocument();
+    expect(metric("推理占输出").getByText("25%")).toBeInTheDocument();
+    expect(metric("输出占已追踪 Token").getByText("28.57%")).toBeInTheDocument();
+    expect(screen.getByText(/不能读作模型解码速度/)).toBeInTheDocument();
+  });
+
+  it("preserves observed zero rates while leaving undefined ratios unavailable", () => {
+    render(<SessionTokens run={{
+      id: "zero-rates", durationMs: 20000, activeDurationMs: 10000,
+      counts: { userTurns: 2 }, tokens: { inputUncached: 100, cacheRead: 0, cacheWrite: 0, output: 0, reasoning: 0 },
+    }} spans={[]} openSpan={vi.fn()} />);
+    expect(metric("活跃期输出速率").getByText("0 tokens/s")).toBeInTheDocument();
+    expect(metric("全程输出速率").getByText("0 tokens/s")).toBeInTheDocument();
+    expect(metric("缓存读取率").getByText("0%")).toBeInTheDocument();
+    expect(metric("每轮平均输出").getByText("0 tokens/轮")).toBeInTheDocument();
+    expect(metric("推理占输出").getByText("—")).toBeInTheDocument();
+    expect(metric("输出占已追踪 Token").getByText("0%")).toBeInTheDocument();
+  });
+
+  it("does not infer output, cache or timing from incomplete fields and pulse intervals", () => {
+    const rendered = render(<SessionTokens run={{
+      id: "partial", tokens: { cacheRead: 100, reasoning: 10 },
+    }} spans={[{ id: "pulse", type: "model", durationMs: 1000, tokenDelta: { output: 20 } }]} openSpan={vi.fn()} />);
+    expect(metric("活跃期输出速率").getByText("—")).toBeInTheDocument();
+    expect(metric("全程输出速率").getByText("—")).toBeInTheDocument();
+    expect(metric("缓存读取率").getByText("—")).toBeInTheDocument();
+    expect(metric("推理占输出").getByText("—")).toBeInTheDocument();
+    expect(metric("输出占已追踪 Token").getByText("—")).toBeInTheDocument();
+    rendered.rerender(<SessionTokens run={{ id: "untimed", tokens: { output: 20 } }} spans={[]} openSpan={vi.fn()} />);
+    expect(metric("活跃期输出速率").getByText("—")).toBeInTheDocument();
+    expect(metric("全程输出速率").getByText("—")).toBeInTheDocument();
+    expect(metric("每轮平均输出").getByText("—")).toBeInTheDocument();
+    expect(metric("输出占已追踪 Token").getByText("—")).toBeInTheDocument();
+  });
+
+  it("rejects zero duration and inconsistent subset values without producing infinities", () => {
+    render(<SessionTokens run={{
+      id: "invalid", durationMs: 0, activeDurationMs: 1000, counts: { userTurns: 0 },
+      tokens: { output: 20, reasoning: 30, inputUncached: 0, cacheRead: 0, total: 10 },
+    }} spans={[]} openSpan={vi.fn()} />);
+    for (const label of ["活跃期输出速率", "全程输出速率", "缓存读取率", "每轮平均输出", "推理占输出", "输出占已追踪 Token"])
+      expect(metric(label).getByText("—")).toBeInTheDocument();
+  });
+
+  it("keeps estimated output quality and does not round tiny nonzero rates to zero", () => {
+    render(<SessionTokens run={{
+      id: "estimated", wallDurationMs: 200000, durationMs: 1000, activeDurationMs: 100000,
+      tokens: { inputUncached: 0, cacheRead: 0, cacheWrite: 0, output: 1, reasoning: 1 }, counts: { userTurns: 1 },
+      quality: { token: "derived", inputTokens: "derived", outputTokens: "estimated", reasoningTokens: "derived" },
+    }} spans={[]} openSpan={vi.fn()} />);
+    expect(metric("全程输出速率").getByText("<0.01 tokens/s")).toBeInTheDocument();
+    for (const label of ["活跃期输出速率", "全程输出速率", "每轮平均输出", "推理占输出", "输出占已追踪 Token"])
+      expect(metric(label).getByText("估算")).toBeInTheDocument();
+  });
+
+  it("does not round near-full cache reuse to full reuse and warns about incomplete timestamps", () => {
+    render(<SessionTokens run={{
+      id: "coverage", tokens: { inputUncached: 1, cacheRead: 1000000 },
+      parseWarnings: ["unknown_timestamp"],
+    }} spans={[]} openSpan={vi.fn()} />);
+    expect(metric("缓存读取率").getByText(">99.99%")).toBeInTheDocument();
+    expect(screen.getByText(/部分事件缺少时间戳/)).toBeInTheDocument();
+  });
+
+  it("keeps the weaker quality of every token bucket participating in a ratio", () => {
+    const rendered = render(<SessionTokens run={{
+      id: "weak-input", tokens: { inputUncached: 10, cacheRead: 0, cacheWrite: 0, output: 20, reasoning: 10 },
+      quality: { inputTokens: "unknown", outputTokens: "exact", reasoningTokens: "unknown" },
+    }} spans={[]} openSpan={vi.fn()} />);
+    expect(metric("推理占输出").getByText("50%")).toBeInTheDocument();
+    expect(metric("推理占输出").getByText("不可用")).toBeInTheDocument();
+    expect(metric("输出占已追踪 Token").getByText("不可用")).toBeInTheDocument();
+    rendered.rerender(<SessionTokens run={{
+      id: "estimated-reasoning", tokens: { output: 20, reasoning: 10 },
+      quality: { outputTokens: "exact", reasoningTokens: "estimated" },
+    }} spans={[]} openSpan={vi.fn()} />);
+    expect(metric("推理占输出").getByText("估算")).toBeInTheDocument();
+  });
+
+  it("labels empty or missing source quality instead of rendering a blank badge", () => {
+    render(<SessionTokens run={{
+      id: "missing-quality", durationMs: 1000, activeDurationMs: 1000,
+      tokens: { output: 20, inputUncached: 10, cacheRead: 10 }, quality: { outputTokens: "" },
+    }} spans={[]} openSpan={vi.fn()} />);
+    for (const label of ["活跃期输出速率", "全程输出速率", "缓存读取率"])
+      expect(metric(label).getByText("不可用")).toBeInTheDocument();
+  });
+
   it("keeps zero separate from missing token buckets and opens a sampled pulse", () => {
     const openSpan = vi.fn();
     const pulse: TraceSpan = {

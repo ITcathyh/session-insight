@@ -155,13 +155,21 @@ func publicRun(run Run) RunView {
 		verification = Verification{Status: "observed", Summary: "识别到验证相关工具活动", EvidenceCount: a.VerificationCount}
 	}
 	quality := map[string]sessioninsight.QualityLevel{
-		"token":        a.Quality["tokens"],
-		"context":      a.Quality["context"],
-		"tools":        a.Quality["tools"],
-		"trajectory":   a.Quality["trajectory"],
-		"skills":       a.Quality["skills"],
-		"correction":   a.Quality["corrections"],
-		"verification": sessioninsight.QualityUnknown,
+		"token":           a.Quality["tokens"],
+		"inputTokens":     a.Quality["inputTokens"],
+		"outputTokens":    a.Quality["outputTokens"],
+		"reasoningTokens": a.Quality["reasoningTokens"],
+		"context":         a.Quality["context"],
+		"tools":           a.Quality["tools"],
+		"trajectory":      a.Quality["trajectory"],
+		"skills":          a.Quality["skills"],
+		"correction":      a.Quality["corrections"],
+		"verification":    sessioninsight.QualityUnknown,
+	}
+	for key, value := range quality {
+		if value == "" {
+			quality[key] = sessioninsight.QualityUnknown
+		}
 	}
 	return RunView{
 		ID: run.ID, SessionRef: run.SessionRef, SessionID: a.SourceSessionID, SourceSessionID: a.SourceSessionID, Origin: run.Origin, ImportedAt: run.ImportedAt, Title: run.Title,

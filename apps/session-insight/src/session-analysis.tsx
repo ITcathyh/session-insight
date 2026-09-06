@@ -40,6 +40,94 @@ function EvidenceTag({ value }: { value?: Evidence }) {
   return <span className="analysis-evidence">{evidenceText[value ?? "unknown"] ?? value}</span>;
 }
 
+function observedRatio(numerator?: number, denominator?: number): number | undefined {
+  if (!hasNumber(numerator) || numerator < 0 || !hasNumber(denominator) || denominator <= 0) return undefined;
+  const result = numerator / denominator;
+  return Number.isFinite(result) ? result : undefined;
+}
+
+function efficiencyValue(value: number | undefined, unit: string): string {
+  if (value === undefined) return "—";
+  const formatted = value > 0 && value < 0.01 ? "<0.01"
+    : unit === "%" && value > 99.99 && value < 100 ? ">99.99"
+      : new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 2 }).format(value);
+  return `${formatted}${unit === "%" ? "" : " "}${unit}`;
+}
+
+function efficiencyEvidence(value: number | undefined, sources: (Evidence | undefined)[], heuristic = false): Evidence {
+  if (value === undefined) return "unavailable";
+  const qualities = sources.map((source) => source || "unknown");
+  const weaker = ["unavailable", "unknown", "partial", "heuristic", "inferred", "estimated"].find((quality) => qualities.includes(quality));
+  if (weaker) return weaker;
+  return qualities.every((quality) => ["exact", "observed", "derived"].includes(quality))
+    ? heuristic ? "heuristic" : "derived" : "unknown";
+}
+
+function TokenEfficiency({ run, detailed = false }: { run: SessionRun; detailed?: boolean }) {
+  const buckets = run.tokens;
+  const output = buckets?.output;
+  const wall = run.wallDurationMs ?? run.durationMs;
+  const active = run.activeDurationMs;
+  const activeRate = hasNumber(active) && (!hasNumber(wall) || active <= wall)
+    ? observedRatio(output, active / 1000) : undefined;
+  const wallRate = hasNumber(wall) ? observedRatio(output, wall / 1000) : undefined;
+  const readableInput = hasNumber(buckets?.inputUncached) && buckets.inputUncached >= 0 && hasNumber(buckets?.cacheRead)
+    ? buckets.inputUncached + buckets.cacheRead : undefined;
+  const cacheRate = observedRatio(buckets?.cacheRead, readableInput);
+  const perTurn = observedRatio(output, run.counts?.userTurns);
+  const reasoningRatio = hasNumber(buckets?.reasoning) && hasNumber(output) && buckets.reasoning <= output
+    ? observedRatio(buckets.reasoning, output) : undefined;
+  const tracked = trackedTokenTotal(buckets);
+  const allBucketsObserved = [buckets?.inputUncached, buckets?.cacheRead, buckets?.cacheWrite, output]
+    .every((value) => hasNumber(value) && value >= 0);
+  const outputShare = allBucketsObserved && hasNumber(output) && hasNumber(tracked) && output <= tracked
+    ? observedRatio(output, tracked) : undefined;
+  const outputQuality = run.quality?.outputTokens;
+  const metrics = [
+    {
+      label: "活跃期输出速率", value: efficiencyValue(activeRate, "tokens/s"),
+      quality: efficiencyEvidence(activeRate, [outputQuality], true),
+      detail: `Output ÷ 活跃时长（${duration(active)}）。活跃时长扣除超过 5 分钟的观察空档，仍包含工具执行和短时等待。`,
+    },
+    {
+      label: "全程输出速率", value: efficiencyValue(wallRate, "tokens/s"),
+      quality: efficiencyEvidence(wallRate, [outputQuality]),
+      detail: `Output ÷ 墙钟时长（${duration(wall)}），包括用户等待、工具执行和空档。`,
+    },
+    {
+      label: "缓存读取率", value: efficiencyValue(cacheRate === undefined ? undefined : cacheRate * 100, "%"),
+      quality: efficiencyEvidence(cacheRate, [run.quality?.inputTokens]),
+      detail: "Cache read ÷（未缓存输入 + Cache read）。不含 Cache write；两个输入字段都需要有记录。",
+    },
+    {
+      label: "每轮平均输出", value: efficiencyValue(perTurn, "tokens/轮"),
+      quality: efficiencyEvidence(perTurn, [outputQuality]),
+      detail: `Output ÷ 用户轮次（${number(run.counts?.userTurns)} 轮）。描述整段会话的平均值。`,
+    },
+    {
+      label: "推理占输出", value: efficiencyValue(reasoningRatio === undefined ? undefined : reasoningRatio * 100, "%"),
+      quality: efficiencyEvidence(reasoningRatio, [outputQuality, run.quality?.reasoningTokens]),
+      detail: "Reasoning ÷ Output。Reasoning 是输出子集，只在两者都有记录时计算。",
+    },
+    {
+      label: "输出占已追踪 Token", value: efficiencyValue(outputShare === undefined ? undefined : outputShare * 100, "%"),
+      quality: efficiencyEvidence(outputShare, [outputQuality, run.quality?.inputTokens]),
+      detail: "Output ÷（Input + Cache read + Cache write + Output）。四个分桶都需要有记录；该比例不衡量回答质量。",
+    },
+  ];
+
+  return <section className="analysis-panel token-efficiency" aria-labelledby="token-efficiency-title">
+    <header><div><p>OUTPUT & CACHE</p><h2 id="token-efficiency-title">输出与缓存效率</h2></div></header>
+    <p className="analysis-pulse-note">速率按会话时间计算，日志未提供独立的模型生成时长，不能读作模型解码速度。缺少字段或分母为 0 时显示 —。</p>
+    {run.parseWarnings?.includes("unknown_timestamp") && <p className="analysis-coverage">部分事件缺少时间戳，会话时长可能不完整；输出速率仅供参考。</p>}
+    <dl>{(detailed ? metrics : metrics.slice(0, 3)).map((metric) => <div key={metric.label}>
+      <dt>{metric.label}<EvidenceTag value={metric.quality} /></dt>
+      <dd>{metric.value}</dd>
+      <small>{metric.detail}</small>
+    </div>)}</dl>
+  </section>;
+}
+
 function peakContext(run: SessionRun, spans: TraceSpan[]): number | undefined {
   const fromRun = run.context?.peakRatio ??
     (hasNumber(run.context?.peakTokens) && hasNumber(run.context?.windowTokens) && run.context.windowTokens > 0
@@ -270,6 +358,8 @@ export function SessionOverview({ run, spans, openSpan, openTool, openTokens }: 
         </dl>
       </header>
 
+      <TokenEfficiency run={run} />
+
       <div className="analysis-layout">
         <section className="analysis-panel analysis-findings" aria-labelledby="analysis-findings-title">
           <header><div><p>TRACE EVIDENCE</p><h2 id="analysis-findings-title">需要检查</h2></div><span>{findings.length ? `${findings.length} 项可观察信号` : "没有可定位信号"}</span></header>
@@ -343,23 +433,19 @@ export function SessionTokens({ run, spans, openSpan }: SessionTokensProps) {
     return [...totals.values()].sort((left, right) => right.total - left.total);
   }, [pulses, spans]);
   const buckets: TokenBuckets | undefined = run.tokens;
-  const inputTotal = hasNumber(buckets?.inputUncached) && hasNumber(buckets?.cacheRead)
-    ? buckets.inputUncached + buckets.cacheRead : undefined;
-  const cacheRate = inputTotal && inputTotal > 0 && hasNumber(buckets?.cacheRead)
-    ? buckets.cacheRead / inputTotal : undefined;
 
   return <section className="session-analysis analysis-tokens-page" aria-label="Token 分析">
     <header className="analysis-brief">
       <div><p>TOKEN ANALYSIS</p><h2>可追踪 Token 构成</h2><span>仅汇总 input、cache read、cache write 与 output；Reasoning 属于 output。</span></div>
       <dl><div><dt>可追踪总量</dt><dd>{tokens(trackedTokenTotal(buckets))}</dd></div><div><dt>数据质量</dt><dd><EvidenceTag value={run.quality?.token} /></dd></div></dl>
     </header>
+    <TokenEfficiency run={run} detailed />
     <section className="analysis-panel token-breakdown" aria-labelledby="token-breakdown-title">
       <header><div><p>BUCKETS</p><h2 id="token-breakdown-title">构成与缓存</h2></div></header>
       {(trackedTokenTotal(buckets) ?? 0) > 0 && <div className="token-composition" role="img" aria-label="Token 构成：输入、缓存读取、缓存写入与输出">
         {([['inputUncached', 'input'], ['cacheRead', 'cache-read'], ['cacheWrite', 'cache-write'], ['output', 'output']] as const).map(([key, className]) => <i key={key} className={className} title={`${key}: ${buckets?.[key] ?? '未观测'}`} style={{ width: `${(buckets?.[key] ?? 0) / trackedTokenTotal(buckets)! * 100}%` }} />)}
       </div>}
       <dl><TokenBucket label="Input" value={buckets?.inputUncached} /><TokenBucket label="Cache read" value={buckets?.cacheRead} detail="复用此前已缓存的输入 Token" /><TokenBucket label="Cache write" value={buckets?.cacheWrite} /><TokenBucket label="Output" value={buckets?.output} detail={hasNumber(buckets?.reasoning) ? `其中 Reasoning ${tokens(buckets.reasoning)}（输出子集）` : "Reasoning 为输出子集"} /></dl>
-      <p className="analysis-cache-note">{cacheRate === undefined ? "Cache hit 需要同时观测 input 与 cache read，当前不可用。" : `Cache hit：${Math.round(cacheRate * 100)}%，表示可观测输入中由 cache read 复用的比例。`}</p>
     </section>
     {turnTotals.length > 0 && <section className="analysis-panel token-turns" aria-labelledby="token-turns-title">
       <header><div><p>TURN BREAKDOWN</p><h2 id="token-turns-title">哪些轮次关联了更多 Token</h2></div><span>{turnTotals.length} 个轮次</span></header>

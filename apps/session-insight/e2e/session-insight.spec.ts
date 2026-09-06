@@ -203,6 +203,13 @@ test("ships an inspectable Codex, Claude, and TraeX session workbench", async ({
   }
 
   await page.goto(`/sessions/${claudeRun}`);
+  const efficiency = page.getByRole("region", { name: "输出与缓存效率" });
+  await expect(efficiency.getByText("10 tokens/s", { exact: true })).toHaveCount(2);
+  await expect(efficiency.getByText("16.67%", { exact: true })).toBeVisible();
+  await expect(efficiency.getByText("估算", { exact: true })).toHaveCount(2);
+  await page.getByRole("button", { name: "Token 分析", exact: true }).click();
+  await expect(efficiency.getByText("40 tokens/轮", { exact: true })).toBeVisible();
+  await expect(efficiency.getByText("24.24%", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "对话" }).click();
   await expect(page.locator(".conversation-view li.user")).toHaveCount(1);
   await expect(page.locator(".conversation-view li.model")).toHaveCount(1);
@@ -246,6 +253,7 @@ test("ships an inspectable Codex, Claude, and TraeX session workbench", async ({
   await page.getByRole("button", { name: "Token 分析", exact: true }).click();
   await expect(page.getByRole("heading", { name: "最大消耗事件" })).toBeVisible();
   await expect(page.locator(".token-composition")).toBeVisible();
+  await efficiency.screenshot({ path: test.info().outputPath("session-efficiency.png") });
   await page.screenshot({ path: test.info().outputPath("session-tokens.png"), fullPage: true });
   await page.locator(".token-pulses").getByRole("button", { name: "定位 Trace" }).first().click();
   await expect(page.getByTestId("toggle-telemetry")).toHaveAttribute("aria-pressed", "true");
@@ -558,6 +566,10 @@ test("ships an inspectable Codex, Claude, and TraeX session workbench", async ({
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.screenshot({ path: test.info().outputPath("session-mobile-dark.png"), fullPage: false });
+  await page.getByRole("button", { name: "Token 分析", exact: true }).click();
+  await expect(efficiency.locator("dl > div")).toHaveCount(6);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: test.info().outputPath("session-efficiency-mobile.png"), fullPage: true });
 
   expect(apiFailures).toEqual([]);
   expect(consoleErrors).toEqual([]);
