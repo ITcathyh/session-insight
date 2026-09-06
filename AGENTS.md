@@ -17,11 +17,11 @@ These are not style preferences. Each one is a property the tool is expected to 
 **This tool reads private transcripts.** Everything below follows from that.
 
 - **Loopback only.** `cmd/session-insight` refuses to start on a non-loopback `--addr`. Never add a flag, default, or "convenience" path that binds a routable interface. There is no auth layer behind it.
-- **The index never stores transcript bodies.** `index.json` holds run summaries plus one bounded title line per run. Event traces go to `runs/<run-id>/trace.json`, separately, so listing the library never reads transcripts.
-- **Excerpts stay bounded.** Conversation turns cap at 8 KiB (`maxConversationExcerptBytes`), tool input/output/errors at 640 bytes (`maxTraceExcerptBytes`). Raising either grows every stored trace on disk — measure before you touch it.
+- **The index never stores transcript bodies.** `index.json` holds run summaries plus one bounded title line per run. Event traces go to `runs/<run-id>/trace.json`, separately. Listing without a keyword query uses summaries; content search lazily reads traces into an in-memory cache that must never be persisted.
+- **Excerpts stay bounded.** Conversation input/output uses an 8 KiB budget (`maxConversationExcerptBytes`); tool input/output and all errors use 640 bytes (`maxTraceExcerptBytes`). Truncation appends `…` after that budget. Raising either increases newly written traces on disk — measure before you touch it.
 - **Original session files are read-only.** Scanning aggregates; it never writes to, moves, or deletes a user's `~/.codex`, `~/.claude`, or `~/.trae` files. Uploads land in a temp dir that is deleted when the request ends.
-- **No raw file paths in stored data.** The index records provider, project, and a source run key — not where on disk the file came from.
-- **The Go module has zero third-party dependencies.** `go.sum` is absent and CI fails if it appears. Standard library only. A dependency in a tool that parses private logs widens the supply-chain surface for no proportionate gain; if you think you need one, raise it rather than adding it.
+- **No source file locations in the index.** Persist the privacy-safe aggregate and hashed lookup keys, never the parser's raw source path or `SourceRunKey`. Transcript excerpts may contain paths mentioned in the conversation; this rule concerns source-file metadata.
+- **The Go module has zero third-party dependencies.** Keep `go.mod` standard-library-only and `go.sum` absent; CI rejects a non-empty `go.sum`. A dependency in a tool that parses private logs widens the supply-chain surface for no proportionate gain; if you think you need one, raise it rather than adding it.
 - **Markdown rendering emits React elements, never HTML strings.** Session content is untrusted input. `dangerouslySetInnerHTML` on transcript text is prohibited. Only `http(s)` links become clickable.
 - **Security headers stay on.** CSP `default-src 'self'`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, set in `securityHeaders`.
 
@@ -48,10 +48,14 @@ apps/session-insight/          React 19 + Vite + react-router-dom
   src/trace-visualization.tsx   Virtual event tree and execution timeline
   src/markdown.tsx              Safe Markdown → React elements
   src/transcript.ts             Unwraps runtime-injected shell tags
+  src/api.ts, src/types.ts      API client and frontend data contracts
 
 server/internal/sessioninsight/ Parser. Pure standard library, zero internal deps.
-server/internal/sessionstore/ HTTP handlers + atomic JSON index store.
+server/internal/sessionstore/ store.go: atomic index and separate trace storage
+                              http.go: import, scan, list, detail, delete
+                              stats.go: filtered aggregates; digest.go: titles/search
 server/cmd/session-insight/    main: flag parsing, loopback guard, graceful shutdown.
+scripts/                      Startup wrapper and one-shot Node.js sync client/tests
 ```
 
 Dependency direction is strictly one-way: `cmd → sessionstore → sessioninsight`. `sessioninsight` imports nothing from this repository; keep it that way, it is what makes the parser testable in isolation.
@@ -60,14 +64,28 @@ Frontend routes: `/` (Library), `/insights` (aggregate), `/sessions/:id` (Trace)
 
 ## Commands
 
+Run commands from the repository root unless shown otherwise. Use Node.js 22.x (at least 22.13 for the locked test dependencies; CI uses Node 22), pnpm 10.28.2 (`package.json`), and Go 1.26.1 (`server/go.mod`). Shared frontend versions live in `pnpm-workspace.yaml`; install with the checked-in `pnpm-lock.yaml`.
+
 ```bash
+pnpm install --frozen-lockfile
 pnpm insight          # Build frontend, start server on 127.0.0.1:4788
 pnpm insight:sync --url http://127.0.0.1:4789  # Sync through an existing SSH tunnel
-make check             # typecheck + lint + unit tests, both languages
-make test-go           # cd server && go test ./...
-make test-ts           # vitest
+make build            # Frontend bundle and Go build
+make check            # TypeScript checks, ESLint, Go/Vitest tests, sync integration
+make test-go          # Go tests in server/ with GOTOOLCHAIN=auto
+make test-ts          # Vitest unit tests
 make test-sync         # Node.js sync client against a real Go server
+pnpm --filter @session-insight/app exec playwright install chromium  # First e2e setup
 make test-e2e          # Playwright — builds and boots a real server
+```
+
+`make check` does not run builds, explicit `go vet`, or Playwright. CI also builds both languages and runs `go vet ./...` from `server/`; Playwright is a separate local check.
+
+For frontend hot reload, run these in separate terminals from the root. Vite proxies `/api` to `http://localhost:8080`, so the backend needs that port:
+
+```bash
+GOTOOLCHAIN=auto go -C server run ./cmd/session-insight --addr localhost:8080 --data "$PWD/.session-insight/dev/index.json"
+pnpm dev
 ```
 
 Override the address or index location:
@@ -103,7 +121,7 @@ Parser fixtures live in `server/internal/sessioninsight/testdata/` — real-shap
 
 Two fixtures carry scale, and both are generated by `apps/session-insight/e2e/fixtures.ts`:
 
-- `testdata/codex-large/session.jsonl` — a checked-in ~1000-event Codex run. `TestLargeCodexSessionTraceReconciles` and `TestLargeCodexImport` use it to check the invariants that only show up at size: unique event IDs, no orphaned parents, token pulses reconciling with the aggregate, and wall = active + idle.
+- `server/internal/sessioninsight/testdata/codex-large/session.jsonl` — the checked-in large Codex run. `TestLargeCodexSessionTraceReconciles` and `TestLargeCodexImport` use it to check the invariants that only show up at size: unique event IDs, no orphaned parents, token pulses reconciling with the aggregate, and wall = active + idle.
 - The same generator produces the e2e upload at runtime, and **exports every number the spec asserts on** (`CODEX_TRACE_EVENTS`, `CODEX_TRACKED_TOKENS_LABEL`, …) so a fixture change can't silently invalidate an assertion.
 
 If you change the generator, regenerate the checked-in file and re-run both suites. Never point a test at a path under a developer's home directory — the whole suite must run on a fresh clone.
@@ -120,17 +138,17 @@ All under `/api/session-insights/`, plus `GET /api/health`.
 | `GET /stats` | Aggregate over **all** matching runs, same filters. Drives the Library header and Insights page. |
 | `GET /runs/:id` | One run including its full event trace. |
 | `GET /summary` | Index-level summary. |
-| `POST /import` | Upload JSONL files. Caps: 32 MB total, 20 files, 4 MB per line. |
-| `POST /scan` | Scan local session dirs. Accepts `days`, `providers`. Caps at 512 MB / 10,000 files per scan. |
+| `POST /import` | Upload JSONL files. Caps: 32 MiB of file content total, 20 files, 4 MiB per line. |
+| `POST /scan` | Scan local session dirs. Accepts `days`, `providers`. Defaults: 512 MiB / 10,000 files per scan. |
 | `DELETE /runs/:id`, `DELETE /runs` | Clear the analysis index only — never the user's source files. |
 
-`sourceSessionId` is the stable frontend field for the original session ID; `sessionId` is kept as a compatibility alias. Note that several sub-agent runs derived from one session share a session ID — identify runs by title, not ID.
+`sourceSessionId` is the stable frontend field for the original session ID; `sessionId` is kept as a compatibility alias. Several sub-agent runs derived from one session share a session ID: use the unique run `id` for selection, routes, and API operations, and the title for human-readable labels.
 
 Provider scan roots: `~/.codex/{sessions,archived_sessions}`, `~/.claude/projects` (recursive; `backups`/`history`/`sessions` subdirs skipped), `~/.trae/cli/sessions` and legacy `~/.trae/sessions`.
 
 ## Commits
 
-Conventional format, atomic by intent: `feat(analysis)`, `fix(parser)`, `refactor`, `docs`, `test`, `chore`.
+Use a conventional subject under 70 characters, atomic by intent: `feat:`, `fix:`, `chore:`, `docs:`, or `refactor:`; scopes such as `feat(analysis):` and `fix(parser):` are supported. Create a new commit rather than amending a pushed commit. Omit generated-by and AI co-author attribution from commits and PR descriptions.
 
 ## Further reading
 
