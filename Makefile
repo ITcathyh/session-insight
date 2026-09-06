@@ -1,4 +1,4 @@
-.PHONY: help insight build test test-go test-ts test-e2e typecheck lint check clean
+.PHONY: help insight build test test-go test-ts test-sync test-e2e typecheck lint check clean
 .DEFAULT_GOAL := help
 
 # The Go module has zero third-party dependencies, so `go` needs no network
@@ -28,10 +28,13 @@ test-go: ## Go tests (parser + explorer + server)
 test-ts: ## Vitest unit tests
 	pnpm test
 
+test-sync: ## Sync integration tests against a real Go server
+	pnpm test:sync
+
 test-e2e: ## Playwright end-to-end tests (builds and boots a real server)
 	pnpm test:e2e
 
-test: test-go test-ts ## Unit tests, both languages
+test: test-go test-ts test-sync ## Unit tests and sync integration tests
 
 check: typecheck lint test ## Everything CI runs except e2e
 

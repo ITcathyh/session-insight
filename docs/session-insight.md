@@ -1,6 +1,6 @@
 # Session Insight
 
-Session Insight 是一个只在本机运行的 Codex / Claude Code / TraeX session 分析器。它提供一个本地 server 和浏览器前端：可以导入 JSONL 文件或目录、扫描本机已有 session、按条件搜索，并查看 token 脉冲、Trace / 瀑布图、工具、Skill、验证、子 agent、空闲间隔和可能纠偏等指标。
+Session Insight 是一个由自己运行的 Codex / Claude Code / TraeX session 分析器。它提供一个只监听回环地址的 server 和浏览器前端：可以导入 JSONL 文件或目录、扫描服务所在机器的 session、按条件搜索，并查看 token 脉冲、Trace / 瀑布图、工具、Skill、验证、子 agent、空闲间隔和可能纠偏等指标。
 
 页面由五个工作区组成：
 
@@ -31,11 +31,65 @@ SESSION_INSIGHT_DATA="$PWD/.session-insight/index.json" pnpm insight
 
 `SESSION_INSIGHT_ADDR` 是监听地址，格式为 `host:port`。`SESSION_INSIGHT_DATA` 是本地分析索引文件路径；父目录会自动创建。未设置时，server 使用操作系统的用户配置目录下的 `session-insight/index.json`：macOS 通常是 `~/Library/Application Support/session-insight/index.json`，Linux 通常是 `~/.config/session-insight/index.json`。
 
+## 远端开发机部署与同步
+
+支持在自己的远端开发机运行服务，通过 SSH 隧道访问；不需要开放 HTTP 端口或增加账号系统。下文以 `user@dev-host` 为例，替换成你的 SSH 登录目标。
+
+### 启动远端服务
+
+将包含同步功能的仓库版本放到远端开发机，在远端仓库根目录执行（需要 Node.js、pnpm、Go）：
+
+```bash
+pnpm install --frozen-lockfile
+pnpm insight
+```
+
+服务默认监听远端的 `127.0.0.1:4788`。需要断开 SSH 后继续运行时，在远端的 tmux 会话中执行上述启动命令。分析索引默认在远端用户配置目录；也可在启动时设置 `SESSION_INSIGHT_DATA`。
+
+### 建立访问隧道
+
+在自己的电脑上执行，并保持该终端运行：
+
+```bash
+ssh -N -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 \
+  -L 127.0.0.1:4789:127.0.0.1:4788 user@dev-host
+```
+
+浏览器打开 <http://127.0.0.1:4789>。本地使用 4789，避免与本机运行的 Session Insight 默认端口冲突。服务器仍只监听回环地址；不要将 `SESSION_INSIGHT_ADDR` 改成开发机 IP 或 `0.0.0.0`。
+
+### 从日志所在机器同步
+
+在自己的电脑上另开终端，在本地仓库根目录运行：
+
+```bash
+# 同步最近 7 天修改过的会话文件
+pnpm insight:sync --url http://127.0.0.1:4789
+
+# 每轮完成后等待 60 秒，再同步新增和有变化的文件；Ctrl-C 停止
+pnpm insight:sync --url http://127.0.0.1:4789 --interval 60
+
+# 全部历史，或只同步一种来源
+pnpm insight:sync --url http://127.0.0.1:4789 --days 0
+pnpm insight:sync --url http://127.0.0.1:4789 --provider claude
+```
+
+同步端只需要 Node.js；也可直接运行 `node scripts/sync-session-insight.mjs --url http://127.0.0.1:4789`，不必在本机启动 Go 服务或构建前端。`--home` 指定包含 `.codex`、`.claude`、`.trae` 的用户目录，默认当前用户目录。只读取默认会话根中的 `.jsonl` 文件，Claude 的 `backups` / `history` / `sessions` 子目录与符号链接会跳过。`--days` 按文件修改时间筛选；页面扫描则按日志内的会话结束时间筛选，两者含义不同。
+
+每个有变化的文件作为完整快照上传，服务端按原始会话身份新增或更新，不按追加行独立分析。Claude 子 agent 的目录关系会保留。同一轮按文件修改时间从旧到新上传，使 live / archived 副本中修改时间较新的快照最后写入。同步不会传播源文件删除；同一来源只运行一个同步进程，避免不同快照相互覆盖。多台机器可分别建立隧道、运行命令，分析结果汇入同一个远端索引；同一会话的多个副本仍视为同一会话，最后一次导入生效。
+
+本地状态记录文件指纹与远端 run ID，不记录原始路径或对话正文，权限为 `0600`。默认保存在用户配置目录的 `session-insight/sync/` 下，按目标地址和源用户目录隔离；`--state` 可指定文件。未变化且远端仍存在的记录不再上传；远端删除记录或清空索引后，下次同步会重新导入选定范围内的记录。服务升级后如需用新解析规则重算，添加 `--force`。
+
+同步会经 SSH 传输完整 JSONL。远端沿用上传的处理方式：原文只在解析期间暂存，结束后删除，长期保存摘要和有限 Trace 摘录。不要对运行中的索引目录做 rsync 覆盖；同步命令通过现有导入接口写入。
+
+单文件上限为 **32 MiB**，单轮最多处理 **512 MiB / 10,000 个待处理文件**。未变化文件不占上传预算，剩余文件可在后续轮次继续处理。超过单文件上限的文件不会拆分或截断，需要在日志所在机器运行服务并使用页面扫描分析。跳过、读取期间变化、导入失败及解析警告均在终端报告；失败文件下次重试。单次运行有跳过或失败时返回非零状态；定时模式继续重试，进度以每轮终端输出为准。同步完成后刷新浏览器查看最新分析。
+
+页面里的「扫描服务端」读取远端当前用户的会话目录；「选择文件 / 目录」从浏览器所在电脑上传。页面不直接读取另一台机器的目录。
+
 ## 导入和分析
 
 选择一个 JSONL 文件导入，成功后直接打开该 session；有跳过项或解析警告时先保留反馈供检查。也可以选择包含 session 文件的目录，前端按每批最多 20 文件、32 MB 分批提交，显示进度和累计结果；中途失败时说明已完成数量，已导入部分保留。Codex、Claude Code 与 TraeX 文件会按内容自动识别；TraeX 的 `model_provider` 为 `trae` 或 `traex` 时都会归一为 provider `traex`。导入结束后可以按 provider、model、项目、时间、工具、Skill、错误、纠偏、上下文风险和关键词搜索。
 
-也可以使用“扫描本机”读取当前用户可访问的 Codex、Claude Code 与 TraeX session。扫描入口可选择最近 1 天、7 天、30 天或全部历史，以及单个 provider；默认最近 7 天。首次扫描后的新增、更新、跳过数量与警告会保留在会话库。TraeX 会扫描当前目录 `~/.trae/cli/sessions` 和旧版目录 `~/.trae/sessions`。扫描只产生聚合结果，不修改原始 session 文件。
+也可以使用“扫描服务端”读取服务所在机器当前用户可访问的 Codex、Claude Code 与 TraeX session。扫描入口可选择最近 1 天、7 天、30 天或全部历史，以及单个 provider；默认最近 7 天。首次扫描后的新增、更新、跳过数量与警告会保留在会话库。TraeX 会扫描当前目录 `~/.trae/cli/sessions` 和旧版目录 `~/.trae/sessions`。扫描只产生聚合结果，不修改原始 session 文件。
 
 单次扫描受总字节上限约束（默认 512 MB）；超出后剩余文件会计入 `filesSkipped`。session 很多时，可用 `providers` 参数分别扫描某一类，或提高 `days` 覆盖更早的记录。
 
@@ -94,7 +148,7 @@ Trace 默认完整展示有效事件，不按数量抽样；“标准采样”�
 - `index.json` 只保存可搜索的 run 摘要，外加每条一行的会话标题；对话正文不写入索引。每个 run 的事件 Trace 独立写入 `runs/<run-id>/trace.json`，避免 Session Library 读取所有事件。
 - Trace 保存原始 session ID、token/context 脉冲，以及输入、输出、错误摘录。user 轮次与 agent 回复上限 8 KB（便于回读对话），工具输入 / 输出 / 错误上限 640 字节。不会保存原始文件路径或完整 JSONL。
 - 提高对话摘录上限后，`runs/` 目录会明显变大。已有 trace 保持导入时的长度，重新扫描后才会带上更长的对话。
-- 数据默认只写入本机用户配置目录；使用 `SESSION_INSIGHT_DATA` 可以把索引放到指定位置。
+- 数据默认只写入运行服务的机器的用户配置目录；使用 `SESSION_INSIGHT_DATA` 可以把索引放到指定位置。
 - server 只接受回环监听地址（例如 `127.0.0.1:4788` 或 `[::1]:4788`）；非回环地址会被拒绝启动。
 
 ## 本地 API

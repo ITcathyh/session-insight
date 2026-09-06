@@ -112,7 +112,7 @@ function ImportControls({
     const accepted = files.filter((item) => /\.jsonl?$/i.test(item.name));
     if (!accepted.length) { setError("请选择 .json 或 .jsonl 文件。"); return; }
     if (accepted.some((item) => item.size > 32 * 1024 * 1024)) {
-      setError("单个上传文件超过 32 MB。请使用扫描本机读取默认目录中的大型 session。");
+      setError("单个上传文件超过 32 MB。大型 session 需要在日志所在机器运行服务，再使用扫描服务端。");
       return;
     }
     setBusy(true);
@@ -159,7 +159,7 @@ function ImportControls({
       onDone(next);
     } catch (caught) {
       setError(
-        caught instanceof Error ? caught.message : "无法扫描本机 session。",
+        caught instanceof Error ? caught.message : "无法扫描服务端 session。",
       );
     } finally {
       setBusy(false);
@@ -209,8 +209,8 @@ function ImportControls({
           <p className="eyebrow">CODEX · CLAUDE CODE · TRAEX</p>
           <h2>从当前 session 开始分析</h2>
           <p>
-            选择一个 JSONL 文件即可打开分析，或扫描本机最近的 session。
-            原始记录只读，分析数据留在本机。
+            选择一个 JSONL 文件即可打开分析，或扫描运行服务的机器上的 session。
+            原始记录只读，分析数据保存在服务端。
           </p>
         </div>
       )}
@@ -242,7 +242,7 @@ function ImportControls({
           disabled={busy}
           data-testid="scan-local"
         >
-          {busy ? "正在处理…" : "扫描本机"}
+          {busy ? "正在处理…" : "扫描服务端"}
         </button>
         <button
           className="danger-ghost"
@@ -253,6 +253,7 @@ function ImportControls({
           清除索引
         </button>
       </div>
+      <p className="muted">扫描服务端读取运行服务的机器；选择文件或目录从当前电脑上传。同步完成后刷新页面查看最新分析。</p>
       {progress && <p role="status" className="import-progress">{progress}</p>}
       {error && (
         <p className="error" role="alert">
@@ -327,7 +328,7 @@ export function Header({ refresh }: { refresh: () => void }) {
             S
           </span>
           <span>
-            Session Insight<small>本地 Session 分析器</small>
+            Session Insight<small>Session 会话分析器</small>
           </span>
         </Link>
         <nav aria-label="主要导航">

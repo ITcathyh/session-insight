@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "insight": "bash scripts/start-session-insight.sh",
+    "insight:sync": "node scripts/sync-session-insight.mjs",
+    "test:sync": "node --test scripts/sync-session-insight.test.mjs",
     "dev": "turbo dev --filter=@session-insight/app",
     "build": "turbo build",
     "typecheck": "turbo typecheck",

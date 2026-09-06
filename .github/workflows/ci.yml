@@ -65,3 +65,11 @@ jobs:
 
       - name: Test
         run: cd server && go test ./...
+
+      - name: Setup Node.js for sync integration tests
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Test sync against a real server
+        run: node --test scripts/sync-session-insight.test.mjs

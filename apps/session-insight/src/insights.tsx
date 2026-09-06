@@ -108,7 +108,7 @@ export function Insights() {
         <div className="empty">
           <strong>还没有已索引的 session</strong>
           <span>
-            先到<Link to="/">会话库</Link>导入或扫描本机记录。
+            先到<Link to="/">会话库</Link>导入记录或扫描服务端记录。
           </span>
         </div>
       </main>

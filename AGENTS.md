@@ -4,7 +4,7 @@ Guidance for AI agents working in this repository. `CLAUDE.md` points here; this
 
 ## What this repository is
 
-**Session Insight** — a local-only analyzer for Codex, Claude Code, and TraeX session logs. It ships a Go server and a React frontend that import or scan JSONL session files and render token pulses, traces, tool and skill usage, verification signals, sub-agents, idle gaps, and likely corrections.
+**Session Insight** — a self-hosted analyzer for Codex, Claude Code, and TraeX session logs. It ships a loopback-bound Go server and a React frontend that import or scan JSONL session files and render token pulses, traces, tool and skill usage, verification signals, sub-agents, idle gaps, and likely corrections. Remote deployments are accessed through SSH tunnels; a Node.js client syncs local logs through the existing import API.
 
 Session Insight needs no database, no login, and no server-side account model — one binary plus one JSON index. Don't reintroduce that machinery: an issue tracker, workspaces, auth, PostgreSQL, or a background daemon are all out of scope here.
 
@@ -62,9 +62,11 @@ Frontend routes: `/` (Library), `/insights` (aggregate), `/sessions/:id` (Trace)
 
 ```bash
 pnpm insight          # Build frontend, start server on 127.0.0.1:4788
+pnpm insight:sync --url http://127.0.0.1:4789  # Sync through an existing SSH tunnel
 make check             # typecheck + lint + unit tests, both languages
 make test-go           # cd server && go test ./...
 make test-ts           # vitest
+make test-sync         # Node.js sync client against a real Go server
 make test-e2e          # Playwright — builds and boots a real server
 ```
 
@@ -95,6 +97,7 @@ Tests sit next to the code they cover.
 | Loopback guard, shutdown | `server/cmd/session-insight/main_test.go` | `go test` |
 | Components, Markdown, transcript unwrapping | `apps/session-insight/src/*.test.tsx` | vitest, jsdom |
 | Full import → search → trace → compare flows | `apps/session-insight/e2e/` | Playwright |
+| Remote sync, incremental updates, retries, source privacy | `scripts/sync-session-insight.test.mjs` | Node.js test runner + real Go server |
 
 Parser fixtures live in `server/internal/sessioninsight/testdata/` — real-shaped JSONL for all three providers, including the edge cases (Claude sub-agent files, `backups/` dirs that must be skipped, legacy TraeX paths). Add a fixture when you add a parsing rule.
 
