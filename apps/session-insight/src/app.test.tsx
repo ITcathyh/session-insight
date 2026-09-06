@@ -10,15 +10,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   App,
   formatCompareTick,
-  isTelemetryOnly,
   reportHtml,
-  runLabel,
-  spanHint,
   timeMapper,
-  timelineDuration,
-  trackedTokenTotal,
 } from "./app";
-import { duration, number, relativeTime, tokens } from "./format";
+import { duration, number, relativeTime, tokens, timelineDuration, trackedTokenTotal } from "./format";
+import { isTelemetryOnly, runLabel, spanHint } from "./session-model";
 
 const run = {
   id: "run-1",
@@ -406,7 +402,7 @@ describe("Session Insight", () => {
     expect(html).toContain("Trace 概览");
     expect(html).toContain("Token 变化");
     expect(html).toContain("上下文压力");
-    expect(html).toContain("确定性结论");
+    expect(html).toContain("证据线索");
     expect(html).toContain("<svg");
     expect(html).toContain('<base href="http://127.0.0.1:4788/">');
     expect(html).toContain('href="/sessions/run-1?focus=tool-1"');

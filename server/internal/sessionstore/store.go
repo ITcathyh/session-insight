@@ -145,7 +145,7 @@ type Verification struct {
 func publicRun(run Run) RunView {
 	a := run.Aggregate
 	var total *int64
-	if a.TokenObserved {
+	if a.InputUncached != nil || a.CacheRead != nil || a.CacheWrite != nil || a.Output != nil {
 		// Reasoning is a subset of output tokens, not an additional bucket.
 		value := deref(a.InputUncached) + deref(a.CacheRead) + deref(a.CacheWrite) + deref(a.Output)
 		total = &value
@@ -158,6 +158,8 @@ func publicRun(run Run) RunView {
 		"token":        a.Quality["tokens"],
 		"context":      a.Quality["context"],
 		"tools":        a.Quality["tools"],
+		"trajectory":   a.Quality["trajectory"],
+		"skills":       a.Quality["skills"],
 		"correction":   a.Quality["corrections"],
 		"verification": sessioninsight.QualityUnknown,
 	}

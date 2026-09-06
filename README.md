@@ -2,7 +2,7 @@
 
 **English | [简体中文](README.zh-CN.md)**
 
-A local-only analyzer for **Codex**, **Claude Code**, and **TraeX** session logs.
+An independent, local-only analyzer for **Codex**, **Claude Code**, and **TraeX** session logs.
 
 Your coding agent leaves a JSONL transcript behind after every run. Session Insight reads those files and answers the questions the transcript makes hard: where did the tokens go, which tool kept failing, how much of that four-hour run was actually idle, and what changed between the run that worked and the run that didn't.
 
@@ -12,14 +12,14 @@ It runs entirely on your machine — a single Go binary bound to loopback, plus 
 
 ## Quick start
 
-Requires Node.js 20+, pnpm 10+, and Go 1.26+.
+Requires Node.js 20+, pnpm 10+, and Go 1.26.1+.
 
 ```bash
 pnpm install
 pnpm insight
 ```
 
-Open <http://127.0.0.1:4788>. Click **扫描本机** to index the sessions already on your machine, or upload JSONL files and directories directly.
+Open <http://127.0.0.1:4788>. Upload one JSONL file to open its analysis, or use **扫描本机** to scan recent sessions by provider and date range. The default scan covers the last seven days. Directory uploads are batched automatically. Initial setup may download dependencies or the Go toolchain; session analysis runs locally.
 
 ## The five workspaces
 
@@ -29,13 +29,15 @@ The interface is in Chinese; the label shown in the app is given in parentheses.
 |---|---|
 | **Library** (会话库) | Every indexed run, identified by its conversation title rather than a UUID. Search across transcript bodies, filter by provider, model, tool, skill, error, or context risk. Header metrics cover all matches, not just the loaded page. Tick two rows to compare them. |
 | **Insights** (全局分析) | Aggregate across everything indexed — token trends and composition, the projects burning the most tokens, the tools that fail most often, provider/model mix, risk surface. Every row links back into Library with the matching filter applied. |
-| **Trace** | Opened by clicking a row in Library. Tree, waterfall, and three synchronized tracks (tool / token / context) over one event stream. Select an event to see bounded excerpts, status, tokens, and context evidence in the inspector, or switch to the rendered conversation. |
+| **Trace** | Opened by clicking a row in Library. Overview, token breakdown and hotspots, chronological tool calls, and a full-event timeline over one event stream. Select an event to see bounded excerpts, status, tokens, and context evidence in the inspector, or switch to the rendered conversation. |
 | **Compare** (对比) | Two runs side by side, switchable between normalized and real elapsed time, with synchronized tool and skill diffs. |
 | **Report** (报告) | Opened from Trace or Compare. Copy as Markdown, download as a single-file HTML, or print. |
 
 <img src="docs/assets/insights.png" alt="Cross-session aggregate view" width="100%">
 
 *Screenshots use synthetic fixture data.*
+
+<img src="docs/assets/session-overview.png" alt="Single-session findings and token analysis" width="100%">
 
 ## What it reads
 

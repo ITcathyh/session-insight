@@ -109,6 +109,8 @@ test("ships an inspectable Codex, Claude, and TraeX session workbench", async ({
     .locator("main")
     .getByTestId("file-input")
     .setInputFiles(codexSessionUpload());
+  await expect(page.getByTestId("session-detail")).toBeVisible();
+  await page.goto("/");
   await expectFindable(sessionID, 1);
   await page.locator(".top-import summary").click();
   await page
@@ -240,7 +242,25 @@ test("ships an inspectable Codex, Claude, and TraeX session workbench", async ({
     .filter({ hasText: "上下文峰值" });
   await expect(contextPeak).toContainText(CODEX_CONTEXT_PEAK_LABEL);
   await expect(contextPeak).not.toContainText("不可用");
-  await page.getByRole("button", { name: /时间轴/ }).click();
+  await page.screenshot({ path: test.info().outputPath("session-overview.png"), fullPage: true });
+  await page.getByRole("button", { name: "Token 分析", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "最大消耗事件" })).toBeVisible();
+  await expect(page.locator(".token-composition")).toBeVisible();
+  await page.screenshot({ path: test.info().outputPath("session-tokens.png"), fullPage: true });
+  await page.locator(".token-pulses").getByRole("button", { name: "定位 Trace" }).first().click();
+  await expect(page.getByTestId("toggle-telemetry")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("trace-inspector")).toContainText("Token pulse");
+  await page.getByTestId("toggle-telemetry").click();
+  await page.getByRole("button", { name: "调用链", exact: true }).click();
+  await expect(page.locator(".tool-call")).toHaveCount(40);
+  await page.locator(".tool-chain").getByRole("combobox", { name: "结果", exact: true }).selectOption("error");
+  await expect(page.locator(".tool-call-status.error")).not.toHaveCount(0);
+  await page.screenshot({ path: test.info().outputPath("session-tools.png"), fullPage: false });
+  await page.reload();
+  await expect(page.locator(".tool-chain").getByRole("combobox", { name: "结果", exact: true })).toHaveValue("error");
+  await page.locator(".tool-call-open").first().click();
+  await expect(page.getByTestId("trace-inspector")).toBeVisible();
+  await page.locator(".session-tabs").getByRole("button", { name: /时间轴/ }).click();
   await expectInViewport(page.getByTestId("compressed-time"));
   await expectInViewport(page.getByTestId("real-time"));
   await expectInViewport(page.getByTestId("trace-inspector"));
@@ -249,6 +269,7 @@ test("ships an inspectable Codex, Claude, and TraeX session workbench", async ({
   await page.getByRole("searchbox", { name: "搜索事件" }).fill("command_execution");
   await expect(page).toHaveURL(/event=command_execution/);
   await page.getByRole("searchbox", { name: "搜索事件" }).fill("");
+  await page.screenshot({ path: test.info().outputPath("session-trace.png"), fullPage: false });
   const focusedFailure = new URL(page.url()).searchParams.get("focus");
   await page.keyboard.press("F8");
   await expect.poll(() => new URL(page.url()).searchParams.get("focus")).not.toBe(focusedFailure);
@@ -286,7 +307,7 @@ test("ships an inspectable Codex, Claude, and TraeX session workbench", async ({
     .match(/显示 (\d+) \/ (\d+) 个事件（另有 (\d+) 个遥测事件未列出）/)!
     .slice(1)
     .map(Number);
-  expect(shown).toBeLessThan(ofSignals);
+  expect(shown).toBe(ofSignals);
   // Nothing is silently dropped: signals plus folded telemetry is the whole run.
   expect(ofSignals + folded).toBe(CODEX_TRACE_EVENTS);
   const disclosure = page.locator(".tree-disclosure").first();
@@ -436,6 +457,8 @@ test("ships an inspectable Codex, Claude, and TraeX session workbench", async ({
     .setInputFiles(crossDaySession());
   await importedCrossDay;
   await expect(page.getByTestId("import-result")).toContainText("新增 1");
+  await expect(page.getByTestId("session-detail")).toBeVisible();
+  await page.goto("/");
   await expect(page.getByTestId("load-more")).toBeVisible();
   expect(await page.locator(".session-table tbody tr").count()).toBe(50);
   await page.getByTestId("load-more").click();
@@ -509,7 +532,7 @@ test("ships an inspectable Codex, Claude, and TraeX session workbench", async ({
   )?.replace("session-", "");
   expect(mobileRun).toBeTruthy();
   await page.goto(`/sessions/${mobileRun}`);
-  await page.getByRole("button", { name: /时间轴/ }).click();
+  await page.locator(".session-tabs").getByRole("button", { name: /时间轴/ }).click();
   await page.getByRole("tab", { name: "结构" }).click();
   await expect(page.locator(".trace-studio")).toHaveAttribute(
     "data-mobile-panel",
@@ -534,6 +557,7 @@ test("ships an inspectable Codex, Claude, and TraeX session workbench", async ({
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.screenshot({ path: test.info().outputPath("session-mobile-dark.png"), fullPage: false });
 
   expect(apiFailures).toEqual([]);
   expect(consoleErrors).toEqual([]);

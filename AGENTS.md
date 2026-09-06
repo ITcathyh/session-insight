@@ -8,7 +8,7 @@ Guidance for AI agents working in this repository. `CLAUDE.md` points here; this
 
 Session Insight needs no database, no login, and no server-side account model — one binary plus one JSON index. Don't reintroduce that machinery: an issue tracker, workspaces, auth, PostgreSQL, or a background daemon are all out of scope here.
 
-The entire codebase is ~12k lines across three Go packages and one React app. Read the whole of a file before changing it.
+The codebase contains three Go packages and one React app. Read the whole of a file before changing it.
 
 ## Hard constraints
 
@@ -39,9 +39,13 @@ The UI's whole purpose is telling a user what actually happened in a run. Fabric
 
 ```
 apps/session-insight/          React 19 + Vite + react-router-dom
-  src/app.tsx                   All five workspaces (large; read before editing)
+  src/app.tsx                   Routes, Trace state, Compare, Report
+  src/library.tsx               Library, import/scan controls, header
+  src/session-model.tsx         Shared event normalization and evidence helpers
+  src/session-analysis.tsx      Single-session overview and Token analysis
+  src/tool-chain.tsx            Chronological tool calls and result excerpts
   src/insights.tsx              Cross-session aggregate view
-  src/trace-visualization.tsx   Tree, waterfall, synchronized tracks
+  src/trace-visualization.tsx   Virtual event tree and execution timeline
   src/markdown.tsx              Safe Markdown → React elements
   src/transcript.ts             Unwraps runtime-injected shell tags
 
@@ -78,7 +82,7 @@ SESSION_INSIGHT_DATA="$PWD/.session-insight/index.json" pnpm insight
 - TypeScript is strict. No `any` on parsed session data.
 - Match the surrounding style. Don't refactor code you weren't asked to touch.
 - No compatibility shims, fallback paths, or legacy adapters unless asked. This tool has no installed-app fleet to stay compatible with — the server and frontend ship together from one build.
-- Don't add a UI framework. The frontend is hand-written CSS in `src/styles.css` with three runtime dependencies (`react`, `react-dom`, `react-router-dom`). Keep it that way.
+- Don't add a UI framework. The frontend is hand-written CSS in `src/styles.css` and view-specific stylesheets with three runtime dependencies (`react`, `react-dom`, `react-router-dom`). Keep it that way.
 
 ## Testing
 
@@ -123,7 +127,7 @@ Provider scan roots: `~/.codex/{sessions,archived_sessions}`, `~/.claude/project
 
 ## Commits
 
-Conventional format, atomic by intent: `feat(explorer)`, `fix(parser)`, `refactor`, `docs`, `test`, `chore`.
+Conventional format, atomic by intent: `feat(analysis)`, `fix(parser)`, `refactor`, `docs`, `test`, `chore`.
 
 ## Further reading
 

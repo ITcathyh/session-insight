@@ -595,7 +595,7 @@ export function EvidenceTimeline({
   const cursorPosition = clamped(mapper.at(cursor));
   const cursorTime = Math.max(rangeStart, Math.min(rangeEnd, cursor));
   const annotation = selected
-    ? `${nameOf(selected)} · ${formatDuration(lengthOf(selected))}`
+    ? `${nameOf(selected)} · ${selected.durationMs === undefined ? "时长未记录" : formatDuration(selected.durationMs)}`
     : "";
   const annotationWidth = Math.min(260, Math.max(110, annotation.length * 7));
   const selectedX =

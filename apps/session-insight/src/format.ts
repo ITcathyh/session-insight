@@ -1,3 +1,5 @@
+import type { TokenBuckets } from "./types";
+
 export function number(value?: number): string {
   if (typeof value !== "number" || !Number.isFinite(value)) return "—";
   return new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 1, notation: "compact" }).format(value);
@@ -44,4 +46,29 @@ export function relativeTime(value?: string, now: number = Date.now()): string {
   const months = Math.floor(days / 30);
   if (months < 12) return `${months} 个月前`;
   return `${Math.floor(months / 12)} 年前`;
+}
+
+export function trackedTokenTotal(value?: TokenBuckets): number | undefined {
+  if (typeof value?.total === "number") return value.total;
+  const values = [
+    value?.inputUncached,
+    value?.cacheRead,
+    value?.cacheWrite,
+    value?.output,
+  ];
+  return values.some((value) => typeof value === "number")
+    ? values.reduce<number>((sum, value) => sum + (value ?? 0), 0)
+    : undefined;
+}
+
+export function timelineDuration(milliseconds: number): string {
+  if (!Number.isFinite(milliseconds)) return "—";
+  if (milliseconds === 0) return "0s";
+  // Rounding everything to whole seconds printed "0s" on every sub-second
+  // call — most tool calls — which reads as "no duration recorded".
+  if (milliseconds < 1000) return `${Math.round(milliseconds)}ms`;
+  if (milliseconds < 10_000) return `${(milliseconds / 1000).toFixed(1)}s`;
+  return milliseconds < 60_000
+    ? `${Math.round(milliseconds / 1000)}s`
+    : duration(milliseconds);
 }

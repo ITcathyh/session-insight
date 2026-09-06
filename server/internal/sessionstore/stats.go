@@ -3,30 +3,34 @@ package sessionstore
 import (
 	"net/http"
 	"sort"
+
+	"github.com/ITcathyh/session-insight/server/internal/sessioninsight"
 )
 
 // Stats aggregates every run matching the active filters, not just the current
 // page. The library header used to sum whatever the browser had already fetched,
 // which made a 50-run slice look like a total across all indexed sessions.
 type Stats struct {
-	RunCount        int           `json:"runCount"`
-	Tokens          TokenBuckets  `json:"tokens"`
-	TokenRunCount   int           `json:"tokenRunCount"`
-	ToolCalls       int           `json:"toolCalls"`
-	ToolFailures    int           `json:"toolFailures"`
-	FailedRunCount  int           `json:"failedRunCount"`
-	ContextRiskRuns int           `json:"contextRiskRuns"`
-	CorrectionRuns  int           `json:"correctionRuns"`
-	SubagentRuns    int           `json:"subagentRuns"`
-	WallMS          int64         `json:"wallDurationMs"`
-	ActiveMS        int64         `json:"activeDurationMs"`
-	IdleMS          int64         `json:"idleDurationMs"`
-	CacheHitRatio   *float64      `json:"cacheHitRatio,omitempty"`
-	Providers       []NameCount   `json:"providers"`
-	Models          []NameCount   `json:"models"`
-	Projects        []ProjectStat `json:"projects"`
-	Tools           []ToolStat    `json:"tools"`
-	Daily           []DayStat     `json:"daily"`
+	RunCount            int           `json:"runCount"`
+	Tokens              TokenBuckets  `json:"tokens"`
+	TokenRunCount       int           `json:"tokenRunCount"`
+	ToolCalls           int           `json:"toolCalls"`
+	ToolFailures        int           `json:"toolFailures"`
+	ToolRunCount        int           `json:"toolRunCount"`
+	ToolOutcomeRunCount int           `json:"toolOutcomeRunCount"`
+	FailedRunCount      int           `json:"failedRunCount"`
+	ContextRiskRuns     int           `json:"contextRiskRuns"`
+	CorrectionRuns      int           `json:"correctionRuns"`
+	SubagentRuns        int           `json:"subagentRuns"`
+	WallMS              int64         `json:"wallDurationMs"`
+	ActiveMS            int64         `json:"activeDurationMs"`
+	IdleMS              int64         `json:"idleDurationMs"`
+	CacheHitRatio       *float64      `json:"cacheHitRatio,omitempty"`
+	Providers           []NameCount   `json:"providers"`
+	Models              []NameCount   `json:"models"`
+	Projects            []ProjectStat `json:"projects"`
+	Tools               []ToolStat    `json:"tools"`
+	Daily               []DayStat     `json:"daily"`
 }
 
 type NameCount struct {
@@ -35,11 +39,12 @@ type NameCount struct {
 }
 
 type ProjectStat struct {
-	Name       string `json:"name"`
-	Runs       int    `json:"runs"`
-	Tokens     int64  `json:"tokens"`
-	DurationMS int64  `json:"durationMs"`
-	Failures   int    `json:"failures"`
+	Name          string `json:"name"`
+	Runs          int    `json:"runs"`
+	Tokens        *int64 `json:"tokens,omitempty"`
+	TokenRunCount int    `json:"tokenRunCount"`
+	DurationMS    int64  `json:"durationMs"`
+	Failures      int    `json:"failures"`
 }
 
 type ToolStat struct {
@@ -49,10 +54,11 @@ type ToolStat struct {
 }
 
 type DayStat struct {
-	Date     string `json:"date"`
-	Runs     int    `json:"runs"`
-	Tokens   int64  `json:"tokens"`
-	Failures int    `json:"failures"`
+	Date          string `json:"date"`
+	Runs          int    `json:"runs"`
+	Tokens        *int64 `json:"tokens,omitempty"`
+	TokenRunCount int    `json:"tokenRunCount"`
+	Failures      int    `json:"failures"`
 }
 
 const (
@@ -70,6 +76,7 @@ func (e *Store) stats(filters runFilters) Stats {
 	}
 	out := Stats{}
 	var input, cacheRead, cacheWrite, output, reasoning int64
+	var inputObserved, cacheReadObserved, cacheWriteObserved, outputObserved, reasoningObserved bool
 	projects := map[string]*ProjectStat{}
 	tools := map[string]*ToolStat{}
 	days := map[string]*DayStat{}
@@ -82,17 +89,37 @@ func (e *Store) stats(filters runFilters) Stats {
 		}
 		a := run.Aggregate
 		out.RunCount++
-		runTokens := aggregateTokens(a)
 		if a.TokenObserved {
 			out.TokenRunCount++
-			input += deref(a.InputUncached)
-			cacheRead += deref(a.CacheRead)
-			cacheWrite += deref(a.CacheWrite)
-			output += deref(a.Output)
-			reasoning += deref(a.ReasoningOutput)
+		}
+		if a.InputUncached != nil {
+			inputObserved = true
+			input += *a.InputUncached
+		}
+		if a.CacheRead != nil {
+			cacheReadObserved = true
+			cacheRead += *a.CacheRead
+		}
+		if a.CacheWrite != nil {
+			cacheWriteObserved = true
+			cacheWrite += *a.CacheWrite
+		}
+		if a.Output != nil {
+			outputObserved = true
+			output += *a.Output
+		}
+		if a.ReasoningOutput != nil {
+			reasoningObserved = true
+			reasoning += *a.ReasoningOutput
 		}
 		out.ToolCalls += a.ToolCallCount
 		out.ToolFailures += a.ToolFailureCount
+		if a.ToolCallCount > 0 || hasKnownToolOutcome(a) {
+			out.ToolRunCount++
+		}
+		if hasKnownToolOutcome(a) {
+			out.ToolOutcomeRunCount++
+		}
 		if a.ToolFailureCount > 0 {
 			out.FailedRunCount++
 		}
@@ -128,7 +155,12 @@ func (e *Store) stats(filters runFilters) Stats {
 			projects[name] = project
 		}
 		project.Runs++
-		project.Tokens += runTokens
+		if a.TokenObserved {
+			project.TokenRunCount++
+		}
+		if tokens, observed := trackedTokens(a); observed {
+			addObservedTokens(&project.Tokens, tokens)
+		}
 		project.Failures += a.ToolFailureCount
 		if wall > 0 {
 			project.DurationMS += wall
@@ -150,21 +182,41 @@ func (e *Store) stats(filters runFilters) Stats {
 				days[key] = day
 			}
 			day.Runs++
-			day.Tokens += runTokens
+			if a.TokenObserved {
+				day.TokenRunCount++
+			}
+			if tokens, observed := trackedTokens(a); observed {
+				addObservedTokens(&day.Tokens, tokens)
+			}
 			day.Failures += a.ToolFailureCount
 		}
 	}
 
-	out.Tokens = TokenBuckets{
-		InputUncached: &input, CacheRead: &cacheRead, CacheWrite: &cacheWrite,
-		Output: &output, Reasoning: &reasoning,
-	}
-	// Reasoning is a subset of output and is deliberately excluded from the total.
-	total := input + cacheRead + cacheWrite + output
-	out.Tokens.Total = &total
-	if readable := input + cacheRead; readable > 0 {
-		ratio := float64(cacheRead) / float64(readable)
-		out.CacheHitRatio = &ratio
+	if inputObserved || cacheReadObserved || cacheWriteObserved || outputObserved || reasoningObserved {
+		if inputObserved {
+			out.Tokens.InputUncached = &input
+		}
+		if cacheReadObserved {
+			out.Tokens.CacheRead = &cacheRead
+		}
+		if cacheWriteObserved {
+			out.Tokens.CacheWrite = &cacheWrite
+		}
+		if outputObserved {
+			out.Tokens.Output = &output
+		}
+		if reasoningObserved {
+			out.Tokens.Reasoning = &reasoning
+		}
+		if inputObserved || cacheReadObserved || cacheWriteObserved || outputObserved {
+			// Reasoning is a subset of output and is deliberately excluded from the total.
+			total := input + cacheRead + cacheWrite + output
+			out.Tokens.Total = &total
+		}
+		if (inputObserved || cacheReadObserved) && input+cacheRead > 0 {
+			ratio := float64(cacheRead) / float64(input+cacheRead)
+			out.CacheHitRatio = &ratio
+		}
 	}
 
 	out.Providers = sortedCounts(providers)
@@ -174,8 +226,18 @@ func (e *Store) stats(filters runFilters) Stats {
 		out.Projects = append(out.Projects, *project)
 	}
 	sort.Slice(out.Projects, func(i, j int) bool {
-		if out.Projects[i].Tokens != out.Projects[j].Tokens {
-			return out.Projects[i].Tokens > out.Projects[j].Tokens
+		left, right := out.Projects[i].Tokens, out.Projects[j].Tokens
+		if left == nil {
+			if right == nil {
+				return out.Projects[i].Name < out.Projects[j].Name
+			}
+			return false
+		}
+		if right == nil {
+			return true
+		}
+		if *left != *right {
+			return *left > *right
 		}
 		return out.Projects[i].Name < out.Projects[j].Name
 	})
@@ -223,6 +285,26 @@ func (e *Store) stats(filters runFilters) Stats {
 		out.Daily = []DayStat{}
 	}
 	return out
+}
+
+func addObservedTokens(total **int64, value int64) {
+	if *total == nil {
+		*total = new(int64)
+	}
+	**total += value
+}
+
+func trackedTokens(a SafeAggregate) (int64, bool) {
+	return aggregateTokens(a), a.InputUncached != nil || a.CacheRead != nil || a.CacheWrite != nil || a.Output != nil
+}
+
+func hasKnownToolOutcome(a SafeAggregate) bool {
+	switch a.Quality["tools"] {
+	case sessioninsight.QualityExact, sessioninsight.QualityDerived, sessioninsight.QualityObserved:
+		return true
+	default:
+		return false
+	}
 }
 
 func sortedCounts(values map[string]int) []NameCount {

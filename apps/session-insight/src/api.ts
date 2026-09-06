@@ -47,8 +47,12 @@ export function importSessions(files: File[]): Promise<ImportResult> {
   return request<ImportResult>("/import", { method: "POST", body: form });
 }
 
-export function scanLocal(): Promise<ImportResult> {
-  return request<ImportResult>("/scan", { method: "POST" });
+export function scanLocal(options: { days: number; providers?: string[] }): Promise<ImportResult> {
+  return request<ImportResult>("/scan", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(options),
+  });
 }
 
 export function clearRuns(): Promise<void> {

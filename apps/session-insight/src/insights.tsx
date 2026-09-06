@@ -24,7 +24,11 @@ function percent(part: number, whole: number): string {
  *  ends are dated, which is enough to read the span without a dense axis. */
 function DailyChart({ days }: { days: DayStat[] }) {
   if (!days.length) return <p className="empty-inline">没有可用的时间分布。</p>;
-  const peak = Math.max(...days.map((day) => day.tokens), 1);
+  const observedDays = days.filter(
+    (day): day is DayStat & { tokens: number } => typeof day.tokens === "number",
+  );
+  const actualPeak = Math.max(...observedDays.map((day) => day.tokens), 0);
+  const scalePeak = Math.max(actualPeak, 1);
   return (
     <>
       <div
@@ -33,20 +37,23 @@ function DailyChart({ days }: { days: DayStat[] }) {
         aria-label={`最近 ${days.length} 天的 token 用量分布`}
       >
         {days.map((day) => {
-          const height = Math.max(2, Math.round((day.tokens / peak) * 100));
+          const height =
+            day.tokens === undefined
+              ? 0
+              : Math.max(2, Math.round((day.tokens / scalePeak) * 100));
           return (
             <div
               key={day.date}
               className={`insight-bar${day.failures > 0 ? " has-failures" : ""}`}
               style={{ height: `${height}%` }}
-              title={`${day.date}\n${number(day.tokens)} tokens · ${day.runs} 个 session · ${day.failures} 次失败`}
+              title={`${day.date}\n${number(day.tokens)} tokens · ${day.tokenRunCount}/${day.runs} 个 session 有 token 观测 · ${day.failures} 次失败`}
             />
           );
         })}
       </div>
       <div className="insight-axis">
         <span>{days[0].date}</span>
-        <span>峰值 {number(peak)} tokens</span>
+        <span>峰值 {observedDays.length ? number(actualPeak) : "—"} tokens</span>
         <span>{days[days.length - 1].date}</span>
       </div>
     </>
@@ -72,8 +79,11 @@ export function Insights() {
   }, []);
 
   const busiest = useMemo(() => {
-    if (!stats?.daily?.length) return undefined;
-    return stats.daily.reduce((top, day) => (day.tokens > top.tokens ? day : top));
+    const observedDays = stats?.daily.filter(
+      (day): day is DayStat & { tokens: number } => typeof day.tokens === "number",
+    );
+    if (!observedDays?.length) return undefined;
+    return observedDays.reduce((top, day) => (day.tokens > top.tokens ? day : top));
   }, [stats]);
 
   if (error)
@@ -104,11 +114,21 @@ export function Insights() {
       </main>
     );
 
-  const totalTokens = stats.tokens.total ?? 0;
-  const cacheRead = stats.tokens.cacheRead ?? 0;
-  const inputUncached = stats.tokens.inputUncached ?? 0;
-  const output = stats.tokens.output ?? 0;
-  const cacheWrite = stats.tokens.cacheWrite ?? 0;
+  const totalTokens = stats.tokens.total;
+  const cacheRead = stats.tokens.cacheRead;
+  const inputUncached = stats.tokens.inputUncached;
+  const output = stats.tokens.output;
+  const cacheWrite = stats.tokens.cacheWrite;
+  const recordedFailures = stats.toolFailures > 0;
+  const toolFailures = recordedFailures || stats.toolOutcomeRunCount > 0 ? stats.toolFailures : undefined;
+  const failedRuns = recordedFailures || stats.toolOutcomeRunCount > 0 ? stats.failedRunCount : undefined;
+  const toolFailureNote = recordedFailures
+    ? `已记录 ${number(stats.toolFailures)} 次失败；${number(stats.toolOutcomeRunCount)}/${number(stats.runCount)} 个 session 的工具结果可判定。`
+    : stats.toolOutcomeRunCount > 0
+      ? `${number(stats.toolOutcomeRunCount)}/${number(stats.runCount)} 个 session 的工具结果可判定。`
+      : stats.toolRunCount > 0
+        ? `${number(stats.toolRunCount)} 个 session 记录了工具调用；没有可判定的工具结果。`
+        : "没有可判定的工具结果。";
 
   return (
     <main id="main-content" className="workspace insights-page">
@@ -144,12 +164,11 @@ export function Insights() {
           <div className="metric-top-label">
             <span>工具失败</span>
           </div>
-          <div className="metric-big-num" style={{ color: stats.toolFailures ? "var(--danger)" : "inherit" }}>
-            {number(stats.toolFailures)}
+          <div className="metric-big-num" style={{ color: recordedFailures ? "var(--danger)" : "inherit" }}>
+            {number(toolFailures)}
           </div>
           <div className="metric-footer-note">
-            {number(stats.toolCalls)} 次调用中失败率{" "}
-            {percent(stats.toolFailures, stats.toolCalls)}
+            {toolFailureNote}
           </div>
         </div>
         <div className="metric-card-body">
@@ -157,10 +176,10 @@ export function Insights() {
             <span>受影响 session</span>
           </div>
           <div className="metric-big-num">
-            {number(stats.failedRunCount)}
+            {number(failedRuns)}
           </div>
           <div className="metric-footer-note">
-            占全部的 {percent(stats.failedRunCount, stats.runCount)}
+            占全部的 {failedRuns === undefined ? "—" : percent(failedRuns, stats.runCount)}
           </div>
         </div>
       </div>
@@ -174,7 +193,9 @@ export function Insights() {
           </span>
         </header>
         <DailyChart days={stats.daily} />
-        <p className="insight-note">条形高度为当日 token 用量，红色表示当日出现工具失败。</p>
+        <p className="insight-note">
+          条形高度为当日 token 用量，红色表示当日出现工具失败；未观测 token 的日期显示为 —。
+        </p>
       </section>
 
       <div className="insight-columns">
@@ -183,22 +204,20 @@ export function Insights() {
             <h2>Token 构成</h2>
           </header>
           <dl className="insight-list">
-            {(
-              [
-                ["缓存读取", cacheRead],
-                ["未缓存输入", inputUncached],
-                ["输出", output],
-                ["缓存写入", cacheWrite],
-              ] as Array<[string, number]>
-            )
-              .sort((a, b) => b[1] - a[1])
+            {([
+              ["缓存读取", cacheRead],
+              ["未缓存输入", inputUncached],
+              ["输出", output],
+              ["缓存写入", cacheWrite],
+            ] as Array<[string, number | undefined]>)
+              .sort((a, b) => (b[1] ?? -1) - (a[1] ?? -1))
               .map(([label, value]) => (
                 <div key={label}>
                   <dt>{label}</dt>
                   <dd>
                     <span className="insight-value">{number(value)}</span>
                     <span className="insight-share">
-                      {percent(value, totalTokens)}
+                      {value === undefined ? "—" : percent(value, totalTokens ?? 0)}
                     </span>
                   </dd>
                 </div>
@@ -270,7 +289,12 @@ export function Insights() {
                   </Link>
                 </td>
                 <td>{number(project.runs)}</td>
-                <td>{number(project.tokens)}</td>
+                <td>
+                  {number(project.tokens)}
+                  {project.tokenRunCount !== project.runs && (
+                    <span className="muted">{`（${project.tokenRunCount}/${project.runs} 个已观测）`}</span>
+                  )}
+                </td>
                 <td>{duration(project.durationMs)}</td>
                 <td className={project.failures ? "danger" : ""}>
                   {number(project.failures)}
@@ -361,9 +385,9 @@ export function Insights() {
               <Link to="/?error=true">出现工具失败</Link>
             </dt>
             <dd>
-              <span className="insight-value">{number(stats.failedRunCount)}</span>
+              <span className="insight-value">{number(failedRuns)}</span>
               <span className="insight-share">
-                {percent(stats.failedRunCount, stats.runCount)}
+                {failedRuns === undefined ? "—" : percent(failedRuns, stats.runCount)}
               </span>
             </dd>
           </div>

@@ -1,0 +1,79 @@
+:root { --muted: #68645d; }
+:root[data-theme="dark"] { --muted: #a7a49c; }
+
+.scan-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0 0 16px;
+  padding: 10px 0;
+  border: 0;
+}
+.scan-options legend { padding: 0; color: var(--muted); font-size: 12px; }
+.scan-options label, .library-sort { display: flex; align-items: center; gap: 8px; }
+.scan-options select { min-width: 130px; }
+.import-panel { flex-wrap: wrap; }
+.import-copy h2 { margin: 6px 0; font-size: 26px; }
+.import-panel .scan-options { flex: 1 0 100%; }
+.top-import > div { max-height: calc(100dvh - var(--topbar-height) - 24px); overflow-y: auto; overscroll-behavior: contain; }
+.table-note { flex-wrap: wrap; gap: 12px; }
+.library-sort select { font-size: 12px; }
+.session-table tbody tr { content-visibility: auto; contain-intrinsic-size: auto 84px; }
+.session-context-actions { flex-wrap: wrap; }
+.workbench-toolbar { flex-wrap: wrap; }
+.event-search input { padding-right: 84px; }
+.event-search > span { right: 42px; }
+.event-search > button { position: absolute; right: 4px; top: 2px; min-height: 30px; border: 0; padding: 2px 8px; }
+.toolbar-group select { max-width: 180px; }
+.timeline-status { flex-wrap: wrap; gap: 8px; }
+.timeline-status button { min-height: 26px; font-size: 11px; }
+.session-tabs { overflow-x: auto; }
+.session-tabs button { flex-shrink: 0; }
+.topbar nav a { transition: color .18s, background-color .18s; }
+.analysis-tools td:first-child { max-width: 340px; overflow-wrap: anywhere; }
+.analysis-findings li, .token-pulses li, .analysis-tools tr { content-visibility: auto; contain-intrinsic-size: auto 60px; }
+.token-composition { display: flex; height: 18px; overflow: hidden; border-radius: 6px; background: var(--surface-subtle); }
+.token-composition i { min-width: 0; }
+.token-composition .input { background: var(--data-user); }
+.token-composition .cache-read { background: var(--data-tool); }
+.token-composition .cache-write { background: var(--data-compact); }
+.token-composition .output { background: var(--data-model); }
+.token-exact { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.conversation-view li { content-visibility: auto; contain-intrinsic-size: auto 220px; }
+
+@media (max-width: 680px) {
+  :root { --topbar-height: 100px; }
+  .topbar { height: var(--topbar-height); display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; padding: 8px 12px; overflow: visible; }
+  .brand span:last-child, .top-import { display: block; }
+  .brand { font-size: 14px; }
+  .brand-mark { width: 24px; height: 24px; }
+  .topbar nav { grid-row: 2; grid-column: 1 / -1; margin: 0; justify-content: space-between; }
+  .topbar nav a { flex: 1; }
+  .topbar-actions { grid-column: 2; grid-row: 1; }
+  .top-import > summary { padding: 5px 7px; font-size: 12px; }
+  .top-import > div { position: fixed; top: var(--topbar-height); right: 12px; width: calc(100vw - 24px); }
+  .workbench-toolbar { position: static; }
+  .session-context-actions { justify-content: flex-end; }
+  .session-context-actions > a { display: inline-flex; padding: 4px 7px; font-size: 11px; }
+  .toolbar-group { flex-wrap: wrap; }
+  .session-context { grid-template-columns: 24px minmax(0, 1fr) auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .topbar nav a { transition: none; }
+}
+
+.tool-chain { padding: 24px 0 40px; max-width: 1260px; margin: auto; }
+.tool-call-topline strong, .tool-call-hint, .tool-call-parent { overflow-wrap: anywhere; min-width: 0; }
+.tool-call { content-visibility: auto; contain-intrinsic-size: auto 250px; }
+
+.token-turns ol { list-style: none; padding: 0; }
+.token-turns li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 16px; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.token-turns strong, .token-turns small { display: block; overflow-wrap: anywhere; }
+.token-turns small { color: var(--muted); margin-top: 4px; }
+@media (max-width: 599px) { .token-turns li { grid-template-columns: minmax(0, 1fr) auto; } .token-turns li button { grid-column: 1 / -1; justify-self: start; } }
+
+@media (max-width: 599px) {
+  .session-context { grid-template-columns: 24px minmax(0, 1fr); }
+  .session-context-actions { grid-column: 2; justify-content: flex-start; padding-left: 8px; }
+  .session-identity h1 { white-space: normal; overflow-wrap: anywhere; }
+}

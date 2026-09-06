@@ -2,7 +2,7 @@
 
 **[English](README.md) | 简体中文**
 
-只在本机运行的 **Codex**、**Claude Code**、**TraeX** 会话分析器。
+独立运行、仅在本机分析的 **Codex**、**Claude Code**、**TraeX** 会话分析器。
 
 编码 agent 每跑一次就留下一份 JSONL 记录。Session Insight 读这些文件，回答那些直接翻记录很难回答的问题：token 花在哪了、哪个工具一直在失败、四个小时的 run 里有多少其实是空等、跑通的那次和没跑通的那次到底差在哪。
 
@@ -12,14 +12,14 @@
 
 ## 快速开始
 
-需要 Node.js 20+、pnpm 10+、Go 1.26+。
+需要 Node.js 20+、pnpm 10+、Go 1.26.1+。
 
 ```bash
 pnpm install
 pnpm insight
 ```
 
-打开 <http://127.0.0.1:4788>。点「扫描本机」索引机器上已有的 session，或者直接上传 JSONL 文件和目录。
+打开 <http://127.0.0.1:4788>。选择一个 JSONL 文件即可进入分析，或按来源和时间范围「扫描本机」（默认最近 7 天）。目录上传会自动分批处理。首次准备环境可能下载依赖或 Go 工具链，session 分析在本机进行。
 
 ## 五个工作区
 
@@ -27,13 +27,15 @@ pnpm insight
 |---|---|
 | **会话库** | 全部已索引的 run，每行以会话标题而不是 UUID 作为主标识。可搜索对话正文，按 provider、模型、工具、Skill、错误、上下文风险筛选。顶部指标覆盖全部匹配结果，不只是已加载的当页。勾选两条可直接比较。 |
 | **全局分析** | 跨全部已索引 session 的聚合——token 走势与构成、最耗 token 的项目、最常失败的工具、provider/模型构成、风险面。每一行都可点击，带对应筛选跳回会话库。 |
-| **Trace** | 从会话库点某一行进入。树、瀑布图，以及工具 / token / 上下文三条同步轨道共用同一份事件数据。选中事件会在 Inspector 中显示有限摘录、状态、token 和上下文证据，也可切到按 Markdown 渲染的对话页。 |
+| **Trace** | 从会话库点某一行进入。概览、Token 构成与峰值、按时间排列的工具调用链、完整事件时间轴共用同一份事件数据。选中事件会在 Inspector 中显示有限摘录、状态、token 和上下文证据，也可切到按 Markdown 渲染的对话页。 |
 | **对比** | 两条 session 并排比较，可在标准化时间与共同真实时间之间切换，并同步筛选 Tool / Skill 差异。 |
 | **报告** | 从 Trace 或对比页打开，可复制 Markdown、下载单文件 HTML 或打印。 |
 
 <img src="docs/assets/insights.png" alt="跨 session 聚合分析" width="100%">
 
 *截图使用合成的 fixture 数据。*
+
+<img src="docs/assets/session-overview.png" alt="单会话问题线索与 Token 分析" width="100%">
 
 ## 读取哪些数据
 
