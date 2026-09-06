@@ -204,6 +204,8 @@ describe("Session Insight", () => {
     fireEvent.change(screen.getByTestId("file-input"), {
       target: { files: [file] },
     });
+    expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).endsWith("/import"))).toBe(false);
+    fireEvent.click(screen.getByTestId("sync-selected"));
     await waitFor(() =>
       expect(screen.getByTestId("import-result")).toHaveTextContent("新增"),
     );

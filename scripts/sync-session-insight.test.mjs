@@ -210,7 +210,7 @@ test("live and archived copies of one session retain the newer snapshot across s
   assert.match(JSON.stringify(await (await fetch(detailURL)).json()), /NEWER_COPY_SENTINEL/);
 });
 
-test("CLI returns failure for skipped files and stops interval sync on SIGTERM", async () => {
+test("CLI syncs once per invocation and returns failure for skipped files", async () => {
   const options = await setup(["codex"]);
   const script = join(repository, "scripts/sync-session-insight.mjs");
   const args = [script, "--url", url, "--home", options.home, "--days", "0", "--state", options.state];
@@ -223,22 +223,8 @@ test("CLI returns failure for skipped files and stops interval sync on SIGTERM",
     return true;
   });
   await rm(oversized);
-  const child = spawn(process.execPath, [...args, "--interval", "1"], { stdio: ["ignore", "pipe", "pipe"] });
-  const completed = once(child, "exit");
-  let output = "";
-  const timer = setTimeout(() => child.kill("SIGKILL"), 10_000);
-  child.stdout.on("data", (chunk) => {
-    output += chunk;
-    if ((output.match(/同步完成/g) || []).length >= 2) child.kill("SIGTERM");
-  });
-  try {
-    const [code, signal] = await completed;
-    assert.equal(code, 0);
-    assert.equal(signal, null);
-    assert.match(output, /未变化 2/);
-    assert.equal((output.match(/同步完成/g) || []).length, 2);
-  } finally {
-    clearTimeout(timer);
-    if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
-  }
+  const { stdout } = await promisify(execFile)(process.execPath, args, { timeout: 10_000 });
+  assert.match(stdout, /上传 0.*未变化 2/);
+  assert.equal((stdout.match(/同步完成/g) || []).length, 1);
+  assert.throws(() => optionsFromArgs(["--url", url, "--interval", "1"]), /interval/);
 });

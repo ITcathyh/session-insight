@@ -93,9 +93,11 @@ function useLibrary() {
 
 function ImportControls({
   onDone,
+  onSelectionChange,
   compact = false,
 }: {
   onDone: (result?: ImportResult) => void;
+  onSelectionChange?: (pending: boolean) => void;
   compact?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
@@ -107,6 +109,27 @@ function ImportControls({
   const [error, setError] = useState("");
   const file = useRef<HTMLInputElement>(null);
   const directory = useRef<HTMLInputElement>(null);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+
+  const chooseFiles = (files: File[]) => {
+    if (!files.length) return;
+    const accepted = files.filter((item) => /\.jsonl?$/i.test(item.name));
+    setPendingFiles(accepted);
+    setSelectedFiles(accepted.filter((item) => item.size <= 32 * 1024 * 1024));
+    setError(accepted.length ? "" : "请选择 .json 或 .jsonl 文件。");
+    setResult(undefined);
+    onSelectionChange?.(accepted.length > 0);
+    if (file.current) file.current.value = "";
+    if (directory.current) directory.current.value = "";
+  };
+
+  const cancelSelection = () => {
+    setPendingFiles([]);
+    setSelectedFiles([]);
+    setError("");
+    onSelectionChange?.(false);
+  };
 
   const upload = async (files: File[]) => {
     const accepted = files.filter((item) => /\.jsonl?$/i.test(item.name));
@@ -129,19 +152,22 @@ function ImportControls({
           batch.push(item);
           bytes += item.size;
         }
-        setProgress(`正在导入 ${completed + 1}–${completed + batch.length} / ${accepted.length} 个文件…`);
+        setProgress(`正在同步 ${completed + 1}–${completed + batch.length} / ${accepted.length} 个文件…`);
         const next = await importSessions(batch);
         for (const key of ["count", "imported", "updated", "filesScanned", "filesSkipped"] as const) aggregate[key] += next[key] ?? 0;
         aggregate.runs.push(...(next.runs ?? []));
         aggregate.warnings = [...new Set([...aggregate.warnings ?? [], ...next.warnings ?? []])];
         completed += batch.length;
+        setPendingFiles((current) => current.filter((item) => !batch.includes(item)));
+        setSelectedFiles((current) => current.filter((item) => !batch.includes(item)));
         setResult({ ...aggregate });
       }
+      cancelSelection();
       onDone(aggregate);
       if (accepted.length === 1 && aggregate.runs.length === 1 && !aggregate.filesSkipped && !aggregate.warnings?.length) navigate(`/sessions/${aggregate.runs[0].id}`);
     } catch (caught) {
-      setError(`${completed ? `已完成 ${completed} 个文件，剩余文件未导入。` : ""}${caught instanceof Error ? caught.message : "无法导入 session。"}`);
-      if (completed) onDone({ ...aggregate, warnings: [...aggregate.warnings ?? [], "部分文件未导入，请重新选择剩余文件。"] });
+      setError(`${completed ? `已完成 ${completed} 个文件。` : ""}剩余所选文件未同步，可点击同步所选重试。${caught instanceof Error ? caught.message : "无法同步 session。"}`);
+      if (completed) onDone({ ...aggregate, warnings: [...aggregate.warnings ?? [], "部分文件未同步，可重试剩余所选文件。"] });
     } finally {
       setBusy(false);
       setProgress("");
@@ -191,7 +217,8 @@ function ImportControls({
         accept=".json,.jsonl"
         aria-label="选择 session 文件"
         multiple
-        onChange={(event) => void upload(Array.from(event.target.files ?? []))}
+        disabled={busy}
+        onChange={(event) => chooseFiles(Array.from(event.target.files ?? []))}
       />
       <input
         ref={directory}
@@ -202,20 +229,21 @@ function ImportControls({
         aria-label="选择 session 目录"
         multiple
         {...({ webkitdirectory: "" } as Record<string, string>)}
-        onChange={(event) => void upload(Array.from(event.target.files ?? []))}
+        disabled={busy}
+        onChange={(event) => chooseFiles(Array.from(event.target.files ?? []))}
       />
       {!compact && (
         <div className="import-copy">
           <p className="eyebrow">CODEX · CLAUDE CODE · TRAEX</p>
           <h2>从当前 session 开始分析</h2>
           <p>
-            选择一个 JSONL 文件即可打开分析，或扫描运行服务的机器上的 session。
+            选择本机会话文件，点击同步所选后开始分析；也可以扫描服务端的 session。
             原始记录只读，分析数据保存在服务端。
           </p>
         </div>
       )}
       <fieldset className="scan-options" disabled={busy}>
-        <legend>扫描范围</legend>
+        <legend>服务端扫描范围</legend>
         <label>时间
           <select aria-label="扫描时间范围" value={days} onChange={(event) => setDays(Number(event.target.value))}>
             <option value={1}>最近 1 天</option><option value={7}>最近 7 天</option>
@@ -253,7 +281,40 @@ function ImportControls({
           清除索引
         </button>
       </div>
-      <p className="muted">扫描服务端读取运行服务的机器；选择文件或目录从当前电脑上传。同步完成后刷新页面查看最新分析。</p>
+      <p className="muted">选择文件或目录后，勾选要同步的记录并点击同步所选。文件会上传到当前服务；原始记录只读。</p>
+      {pendingFiles.length > 0 && (
+        <fieldset className="sync-selection" disabled={busy}>
+          <legend>选择要同步的文件</legend>
+          <p>已选 {selectedFiles.length} / {pendingFiles.length} 个文件 · {number(Math.ceil(selectedFiles.reduce((sum, item) => sum + item.size, 0) / 1024))} KiB</p>
+          <div className="import-actions">
+            <button onClick={() => setSelectedFiles(pendingFiles.filter((item) => item.size <= 32 * 1024 * 1024))}>全选可同步文件</button>
+            <button onClick={() => setSelectedFiles([])}>取消全选</button>
+          </div>
+          <ul className="sync-file-list">
+            {pendingFiles.map((item, index) => {
+              const path = item.webkitRelativePath || item.name;
+              const oversized = item.size > 32 * 1024 * 1024;
+              return (
+                <li key={index}>
+                  <label>
+                    <input type="checkbox" checked={selectedFiles.includes(item)} disabled={oversized}
+                      aria-label={`同步 ${path}`}
+                      onChange={(event) => setSelectedFiles((current) => event.target.checked ? [...current, item] : current.filter((entry) => entry !== item))} />
+                    <span>{path}{oversized && <small>超过 32 MiB，无法上传</small>}</span>
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="import-actions">
+            <button className="primary" data-testid="sync-selected" disabled={!selectedFiles.length}
+              onClick={() => void upload([...selectedFiles].sort((a, b) => a.lastModified - b.lastModified))}>
+              {busy ? "正在同步…" : `同步所选 ${selectedFiles.length} 个文件`}
+            </button>
+            <button onClick={cancelSelection}>取消选择</button>
+          </div>
+        </fieldset>
+      )}
       {progress && <p role="status" className="import-progress">{progress}</p>}
       {error && (
         <p className="error" role="alert">
@@ -368,7 +429,7 @@ export function Header({ refresh }: { refresh: () => void }) {
         )}
         <div className="topbar-actions">
           <details ref={importMenu} className="top-import">
-            <summary>导入 session</summary>
+            <summary>同步会话</summary>
             <ImportControls compact onDone={refresh} />
           </details>
           <button
@@ -564,6 +625,7 @@ export function Library() {
   const location = useLocation();
   const [picked, setPicked] = useState<string[]>([]);
   const [importResult, setImportResult] = useState<ImportResult>();
+  const [choosingFiles, setChoosingFiles] = useState(false);
   // The server already applied every filter; re-filtering here would only hide
   // rows the pager has fetched and desync the count from the header.
   const visible = state.runs;
@@ -630,8 +692,8 @@ export function Library() {
           )}
         </div>
       </div>
-      {state.total === 0 && !state.loading && !state.error && !Object.values(state.filters).some(Boolean) ? (
-        <ImportControls onDone={(result) => { setImportResult(result); state.refresh(); }} />
+      {choosingFiles || (state.total === 0 && !state.loading && !state.error && !Object.values(state.filters).some(Boolean)) ? (
+        <ImportControls onSelectionChange={setChoosingFiles} onDone={(result) => { setImportResult(result); state.refresh(); }} />
       ) : (
         <>
           {importResult && <ImportFeedback result={importResult} />}

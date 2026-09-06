@@ -15,6 +15,14 @@
 .import-panel { flex-wrap: wrap; }
 .import-copy h2 { margin: 6px 0; font-size: 26px; }
 .import-panel .scan-options { flex: 1 0 100%; }
+.sync-selection { min-width: 0; width: 100%; margin: 16px 0 0; padding: 12px; border: 1px solid var(--line); border-radius: 8px; }
+.sync-selection legend { padding: 0 6px; font-weight: 600; }
+.sync-selection p { color: var(--muted); font-size: 13px; }
+.sync-file-list { max-height: 240px; overflow-y: auto; margin: 12px 0; padding: 0; list-style: none; }
+.sync-file-list label { display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; cursor: pointer; }
+.sync-file-list input { flex-shrink: 0; margin-top: 3px; }
+.sync-file-list span { min-width: 0; overflow-wrap: anywhere; font-size: 13px; }
+.sync-file-list small { display: block; color: var(--danger); }
 .top-import > div { max-height: calc(100dvh - var(--topbar-height) - 24px); overflow-y: auto; overscroll-behavior: contain; }
 .table-note { flex-wrap: wrap; gap: 12px; }
 .library-sort select { font-size: 12px; }

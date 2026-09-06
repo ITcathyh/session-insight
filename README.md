@@ -19,21 +19,18 @@ pnpm install
 pnpm insight
 ```
 
-Open <http://127.0.0.1:4788>. Upload one JSONL file to open its analysis, or use **扫描服务端** to scan recent sessions by provider and date range. The default scan covers the last seven days. Directory uploads are batched automatically. Initial setup may download dependencies or the Go toolchain; session analysis runs on the machine hosting the server.
+Open <http://127.0.0.1:4788>. Select a JSONL file and click **同步所选** to open its analysis, or use **扫描服务端** to scan recent sessions by provider and date range. The default scan covers the last seven days. Directory uploads are batched automatically. Initial setup may download dependencies or the Go toolchain; session analysis runs on the machine hosting the server.
 
 ## Remote deployment and sync
 
-Run `pnpm install --frozen-lockfile` and `pnpm insight` in the remote checkout, then open a tunnel and sync from your computer:
+Run `pnpm install --frozen-lockfile` and `pnpm insight` in the remote checkout, then open a tunnel from your computer:
 
 ```bash
-# Terminal 1: keep running; replace the SSH destination
+# Keep running; replace the SSH destination
 ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:4789:127.0.0.1:4788 user@dev-host
-
-# Terminal 2: from the local checkout, sync changed files every 60 seconds
-pnpm insight:sync --url http://127.0.0.1:4789 --interval 60
 ```
 
-Open <http://127.0.0.1:4789>. The sync client needs only Node.js and selects files modified within seven days by default; use `--days 0` for all history. Full JSONL snapshots travel through the tunnel and are deleted after parsing on the server. The existing 32 MiB per-file upload limit applies; skipped and failed files are reported. Larger files need server-side scanning on the machine holding the logs. **扫描服务端** scans the server's directories; file selection uploads from your browser's computer. See the [deployment and sync guide](docs/session-insight.md#远端开发机部署与同步) (Chinese).
+Open <http://127.0.0.1:4789>, choose **同步会话**, select local files or a directory, check the files to sync, then click **同步所选**. Selection alone does not upload anything. Each sync is started by the user. Alternatively, run `pnpm insight:sync --url http://127.0.0.1:4789` once from your local checkout. The CLI needs only Node.js and selects files modified within seven days by default; use `--days 0` for all history. Full JSONL snapshots travel through the tunnel and are deleted after parsing on the server. The existing 32 MiB per-file upload limit applies; skipped and failed files are reported. Larger files need server-side scanning on the machine holding the logs. **扫描服务端** scans the server's directories; **同步所选** uploads the checked files from your browser's computer. See the [deployment and sync guide](docs/session-insight.md#远端开发机部署与同步) (Chinese).
 
 ## The five workspaces
 

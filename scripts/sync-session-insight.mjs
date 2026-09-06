@@ -4,7 +4,6 @@ import { constants } from "node:fs";
 import { chmod, lstat, mkdir, open, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
-import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 
@@ -26,7 +25,7 @@ export function optionsFromArgs(args) {
   const { values } = parseArgs({ args, options: {
     url: { type: "string" }, home: { type: "string", default: homedir() },
     days: { type: "string", default: "7" }, provider: { type: "string" },
-    interval: { type: "string", default: "0" }, state: { type: "string" },
+    state: { type: "string" },
     force: { type: "boolean", default: false }, help: { type: "boolean", default: false },
   } });
   if (values.help) return { help: true };
@@ -36,15 +35,14 @@ export function optionsFromArgs(args) {
     || url.username || url.password || url.pathname !== "/" || url.search || url.hash) {
     throw new Error("--url 必须是 http://127.0.0.1:端口 或 http://[::1]:端口；远端请使用 SSH 隧道");
   }
-  const days = Number(values.days), interval = Number(values.interval);
+  const days = Number(values.days);
   if (!Number.isInteger(days) || days < 0 || days > 3650) throw new Error("--days 必须为 0–3650 的整数（0 表示全部）");
-  if (!Number.isInteger(interval) || interval < 0 || interval > 86400) throw new Error("--interval 必须为 0–86400 的整数秒（0 表示单次）");
   if (values.provider && !["codex", "claude", "traex"].includes(values.provider)) throw new Error("--provider 必须为 codex、claude 或 traex");
   const sourceHome = resolve(values.home);
   const configDir = process.platform === "darwin"
     ? join(homedir(), "Library", "Application Support")
     : process.env.XDG_CONFIG_HOME || join(homedir(), ".config");
-  return { url: url.origin, home: sourceHome, days, interval, provider: values.provider, force: values.force,
+  return { url: url.origin, home: sourceHome, days, provider: values.provider, force: values.force,
     state: resolve(values.state || join(configDir, "session-insight", "sync", `${hash(url.origin + "\0" + sourceHome)}.json`)) };
 }
 
@@ -203,10 +201,9 @@ async function main() {
   const options = optionsFromArgs(process.argv.slice(2));
   if (options.help) {
     console.log(`用法：pnpm insight:sync --url http://127.0.0.1:4789 [选项]
-先建立 SSH 隧道，再在日志所在机器执行；服务仍只监听回环地址。
+先建立 SSH 隧道，再手动执行一次同步；服务仍只监听回环地址。
   --days 7          按文件修改时间选择最近 N 天；0 为全部
   --provider codex  只同步 codex / claude / traex；默认全部
-  --interval 60     每轮结束后等待 N 秒再同步；默认单次，Ctrl-C 停止
   --home PATH       日志所属用户目录；默认当前用户目录
   --state PATH      本地增量状态文件；默认按目标地址和用户目录隔离
   --force           重新上传选中范围，包括未变化文件（如服务升级后）
@@ -220,20 +217,11 @@ async function main() {
   process.once("SIGTERM", stop);
   options.signal = controller.signal;
   try {
-    do {
-      try {
-        const result = await syncOnce(options);
-        if (!options.interval && (result.failed || result.skipped)) process.exitCode = 1;
-      } catch (error) {
-        if (controller.signal.aborted) break;
-        if (!options.interval) throw error;
-        console.error(`同步失败，将在 ${options.interval} 秒后重试：${error.message}`);
-      }
-      if (!options.interval) break;
-      await delay(options.interval * 1000, undefined, { signal: controller.signal });
-    } while (!controller.signal.aborted);
+    const result = await syncOnce(options);
+    if (result.failed || result.skipped) process.exitCode = 1;
   } catch (error) {
     if (!controller.signal.aborted) throw error;
+    process.exitCode = 130;
   } finally {
     process.removeListener("SIGINT", stop);
     process.removeListener("SIGTERM", stop);

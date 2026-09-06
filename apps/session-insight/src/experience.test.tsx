@@ -72,8 +72,79 @@ describe("analysis workflow", () => {
     mount();
     await screen.findByTestId("session-example");
     fireEvent.change(screen.getByTestId("directory-input"), { target: { files: Array.from({ length: 23 }, (_, index) => new File(["{}"], `${index}.jsonl`)) } });
+    expect(sizes).toEqual([]);
+    fireEvent.click(screen.getByTestId("sync-selected"));
     await waitFor(() => expect(screen.getByTestId("import-result")).toHaveTextContent("新增 23 条"));
     expect(sizes).toEqual([20, 3]);
+  });
+
+  it("uploads only checked files after the user starts sync and preserves relative paths", async () => {
+    const uploads: FormData[] = [];
+    vi.stubGlobal("fetch", vi.fn((url: RequestInfo | URL, init?: RequestInit) => {
+      if (String(url).endsWith("/import")) {
+        uploads.push(init?.body as FormData);
+        return respond({ runs: [], count: 1, imported: 1, updated: 0, filesScanned: 1, filesSkipped: 0 });
+      }
+      return String(url).includes("/stats") ? respond(stats) : respond({ runs: [session], total: 1 });
+    }));
+    mount();
+    await screen.findByTestId("session-example");
+    fireEvent.click(screen.getByText("同步会话"));
+    const child = new File(["{}"], "worker.jsonl");
+    Object.defineProperty(child, "webkitRelativePath", { value: "project/subagents/worker.jsonl" });
+    const files = [child, new File(["{}"], "private.jsonl")];
+    fireEvent.change(screen.getByTestId("directory-input"), { target: { files } });
+    expect(uploads).toHaveLength(0);
+    fireEvent.click(screen.getByLabelText("同步 private.jsonl"));
+    expect(screen.getByTestId("sync-selected")).toHaveTextContent("同步所选 1 个文件");
+    fireEvent.click(screen.getByTestId("sync-selected"));
+    await waitFor(() => expect(uploads).toHaveLength(1));
+    expect(uploads[0].getAll("relativePath")).toEqual(["project/subagents/worker.jsonl"]);
+    expect((uploads[0].getAll("files") as File[]).map((file) => file.name)).toEqual(["worker.jsonl"]);
+  });
+
+  it("cancels a pending selection without uploading and disables oversized files", async () => {
+    mockSession(); mount();
+    await screen.findByTestId("session-example");
+    fireEvent.click(screen.getByText("同步会话"));
+    const oversized = new File(["{}"], "large.jsonl");
+    Object.defineProperty(oversized, "size", { value: 32 * 1024 * 1024 + 1 });
+    fireEvent.change(screen.getByTestId("file-input"), { target: { files: [oversized, new File(["{}"], "small.jsonl")] } });
+    expect(screen.getByLabelText("同步 large.jsonl")).toBeDisabled();
+    expect(screen.getByLabelText("同步 large.jsonl")).not.toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: "取消全选" }));
+    expect(screen.getByTestId("sync-selected")).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "全选可同步文件" }));
+    expect(screen.getByTestId("sync-selected")).toHaveTextContent("同步所选 1 个文件");
+    fireEvent.click(screen.getByRole("button", { name: "取消选择" }));
+    expect(screen.queryByTestId("sync-selected")).not.toBeInTheDocument();
+    expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).endsWith("/import"))).toBe(false);
+  });
+
+  it("retains failed selections in an initially empty library and retries only unfinished batches", async () => {
+    const sizes: number[] = [];
+    let imported = false;
+    vi.stubGlobal("fetch", vi.fn((url: RequestInfo | URL, init?: RequestInit) => {
+      if (String(url).endsWith("/import")) {
+        const size = (init?.body as FormData).getAll("files").length;
+        sizes.push(size);
+        if (sizes.length === 2) return Promise.resolve(new Response("try again", { status: 500 }));
+        imported = true;
+        return respond({ runs: [], count: size, imported: size, updated: 0, filesScanned: size, filesSkipped: 0 });
+      }
+      return String(url).includes("/stats") ? respond(stats) : respond({ runs: imported ? [session] : [], total: imported ? 1 : 0 });
+    }));
+    mount();
+    await screen.findByText("从当前 session 开始分析");
+    const main = within(screen.getByRole("main"));
+    fireEvent.change(main.getByTestId("directory-input"), { target: { files: Array.from({ length: 23 }, (_, index) => new File(["{}"], `${index}.jsonl`)) } });
+    fireEvent.click(main.getByTestId("sync-selected"));
+    await waitFor(() => expect(main.getByRole("alert")).toHaveTextContent("已完成 20 个文件"));
+    expect(main.getByTestId("sync-selected")).toHaveTextContent("同步所选 3 个文件");
+    expect(main.getAllByRole("checkbox")).toHaveLength(3);
+    fireEvent.click(main.getByTestId("sync-selected"));
+    await waitFor(() => expect(sizes).toEqual([20, 3, 3]));
+    await screen.findByTestId("session-example");
   });
 
   it("searches all event excerpts and reveals a match beyond summary sampling", async () => {

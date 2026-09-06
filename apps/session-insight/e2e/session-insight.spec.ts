@@ -104,11 +104,22 @@ test("ships an inspectable Codex, Claude, and TraeX session workbench", async ({
     await search.fill("");
   };
 
+  const syncSelected = async () => {
+    const button = page.getByTestId("sync-selected");
+    if (!(await button.isVisible())) await page.locator(".top-import summary").click();
+    await button.click();
+  };
+
   await expect(page.getByText("0 个 session")).toBeVisible();
   await page
     .locator("main")
     .getByTestId("file-input")
     .setInputFiles(codexSessionUpload());
+  await expect(page.getByTestId("sync-selected")).toBeVisible();
+  const beforeSync = await (await page.request.get("/api/session-insights/summary")).json();
+  expect(beforeSync.runCount).toBe(0);
+  await page.screenshot({ path: test.info().outputPath("manual-sync-selection.png"), fullPage: true });
+  await syncSelected();
   await expect(page.getByTestId("session-detail")).toBeVisible();
   await page.goto("/");
   await expectFindable(sessionID, 1);
@@ -117,11 +128,13 @@ test("ships an inspectable Codex, Claude, and TraeX session workbench", async ({
     .locator(".top-import")
     .getByTestId("directory-input")
     .setInputFiles(claudeDirectory);
+  await syncSelected();
   await expectFindable("claude-root", 2);
   await page
     .locator(".top-import")
     .getByTestId("directory-input")
     .setInputFiles(traexDirectory);
+  await syncSelected();
   await expectFindable("traex-modern-root", 1);
   // The TraeX fixture opens with "inspect the project"; that line is what the
   // library shows, and searching its text alone must find the run.
@@ -449,6 +462,7 @@ test("ships an inspectable Codex, Claude, and TraeX session workbench", async ({
       .locator(".top-import")
       .getByTestId("file-input")
       .setInputFiles(batch);
+    await syncSelected();
     await imported;
     await expect(page.getByTestId("import-result")).toContainText(
       `新增 ${batch.length}`,
@@ -463,6 +477,7 @@ test("ships an inspectable Codex, Claude, and TraeX session workbench", async ({
     .locator(".top-import")
     .getByTestId("file-input")
     .setInputFiles(crossDaySession());
+  await syncSelected();
   await importedCrossDay;
   await expect(page.getByTestId("import-result")).toContainText("新增 1");
   await expect(page.getByTestId("session-detail")).toBeVisible();
@@ -570,6 +585,14 @@ test("ships an inspectable Codex, Claude, and TraeX session workbench", async ({
   await expect(efficiency.locator("dl > div")).toHaveCount(6);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({ path: test.info().outputPath("session-efficiency-mobile.png"), fullPage: true });
+
+  await page.locator(".top-import summary").click();
+  await page.locator(".top-import").getByTestId("file-input").setInputFiles(generatedSessions().slice(0, 2));
+  await expectInViewport(page.getByTestId("sync-selected"));
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: test.info().outputPath("manual-sync-mobile.png"), fullPage: false });
+  await page.getByRole("button", { name: "取消选择", exact: true }).click();
+  await expect(page.getByTestId("sync-selected")).toHaveCount(0);
 
   expect(apiFailures).toEqual([]);
   expect(consoleErrors).toEqual([]);
